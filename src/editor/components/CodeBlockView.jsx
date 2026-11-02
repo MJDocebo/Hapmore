@@ -3,11 +3,14 @@ import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { CODE_LANGUAGES } from '../languages';
 import { Check, Copy } from '../../components/icons';
 import { isHex } from '../../lib/utils';
+import { useApp } from '../../store/useApp';
 
 export default function CodeBlockView({ node, updateAttributes, editor }) {
   const lang = node.attrs.language || 'plaintext';
   const [copied, setCopied] = useState(false);
   const known = CODE_LANGUAGES.some(([v]) => v === lang);
+  const lineNumbers = useApp((s) => !!s.settings.codeStyle?.lineNumbers);
+  const lineCount = lineNumbers ? node.textContent.split('\n').length : 0;
 
   const copy = async () => {
     try {
@@ -39,9 +42,18 @@ export default function CodeBlockView({ node, updateAttributes, editor }) {
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <pre spellCheck={false}>
-        <NodeViewContent as="code" className={`hljs language-${lang}`} />
-      </pre>
+      <div className={`hm-code-body ${lineNumbers ? 'has-lines' : ''}`}>
+        {lineNumbers && (
+          <div className="hm-code-lines" contentEditable={false} aria-hidden="true">
+            {Array.from({ length: lineCount }, (_, i) => (
+              <span key={i}>{i + 1}</span>
+            ))}
+          </div>
+        )}
+        <pre spellCheck={false}>
+          <NodeViewContent as="code" className={`hljs language-${lang}`} />
+        </pre>
+      </div>
     </NodeViewWrapper>
   );
 }

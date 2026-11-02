@@ -162,30 +162,43 @@
 .login-foot { margin: 0; font-size: 12px; text-align: center; }
 
 /* ───────────────────────── Pages ───────────────────────── */
-.page { min-height: 100%; padding-bottom: 120px; }
+.page { display: flow-root; min-height: 100%; padding-bottom: 120px; } /* flow-root: child margins can't leak out and expose the main background */
 .page-inner { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 0 56px; }
 .page-inner.is-wide { max-width: var(--page-max-wide); }
 .empty-page { padding-top: 120px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 @media (max-width: 700px) { .page-inner { padding: 0 18px; } }
 
+/* Edge-to-edge frosted top bar: overlaps the cover (negative bottom margin) and stays pinned while scrolling. */
 .page-toolbar {
+  --toolbar-h: 44px;
   position: sticky;
   top: 0;
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 46px;
-  padding: 0 12px 0 16px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px);
+  height: var(--toolbar-h);
+  margin: 0 0 calc(-1 * var(--toolbar-h));
+  padding: 0 10px 0 14px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.4);
 }
-.shell.is-collapsed .page-toolbar { padding-left: 52px; }
-@media (max-width: 860px) { .page-toolbar { padding-left: 52px; } }
-.crumbs { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; font-size: 13px; overflow: hidden; white-space: nowrap; }
-.crumb { display: inline-flex; align-items: center; gap: 5px; padding: 2px 5px; border-radius: 4px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
-a.crumb:hover { background: var(--bg-hover); color: var(--text); }
-.crumb.is-current { color: var(--text); }
+.page-toolbar .icon-btn:hover, .page-toolbar .btn.ghost:hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
+.shell.is-collapsed .page-toolbar { padding-left: 48px; } /* clears the floating open-sidebar button */
+@media (max-width: 860px) { .page-toolbar { padding-left: 48px; } }
+.crumbs { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; overflow: hidden; white-space: nowrap; text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
+.crumb-item { display: inline-flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; }
+.crumb-item:first-child, .crumb-item:nth-child(2) { flex-shrink: 0; } /* Home and the space kind stay readable; long titles truncate */
+.crumb-sep { flex: none; color: color-mix(in srgb, var(--text) 55%, transparent); }
+.crumb { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 2px 6px; border-radius: 5px; color: color-mix(in srgb, var(--text) 82%, transparent); }
+.crumb-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.crumb.is-plain { color: color-mix(in srgb, var(--text) 82%, transparent); }
+.crumb.is-current { color: var(--text); font-weight: 550; }
 .save-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-right: 4px; white-space: nowrap; }
 .save-status.is-error { color: var(--danger); }
 
@@ -207,7 +220,7 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
 
 /* Page header */
 .page-header { position: relative; padding-bottom: 10px; }
-.page-header:not(.has-cover) { padding-top: 56px; }
+.page-header:not(.has-cover) { padding-top: 92px; } /* clears the floating toolbar */
 .page-header-inner { position: relative; }
 .page-header.has-cover.has-icon .page-icon { margin-top: -42px; }
 .page-icon { display: inline-flex; padding: 4px; border-radius: 8px; line-height: 1; position: relative; z-index: 2; }
@@ -227,7 +240,7 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
   margin: 4px 0 6px;
 }
 .page-title::placeholder { color: var(--text-3); opacity: 0.6; }
-.page-subtitle { width: 100%; border: 0; outline: none; background: transparent; font-family: var(--font-subtitle); font-size: var(--size-subtitle); color: var(--color-subtitle, var(--text-2)); padding: 2px 0; margin-bottom: 6px; }
+.page-subtitle { width: 100%; border: 0; outline: none; background: transparent; font-family: var(--font-subtitle); font-size: var(--size-subtitle); color: var(--color-subtitle, var(--text-2)); font-weight: var(--weight-subtitle, 400); font-style: var(--style-subtitle, normal); text-decoration-line: var(--decoration-subtitle, none); padding: 2px 0; margin-bottom: 6px; }
 .page-subtitle::placeholder { color: var(--text-3); opacity: 0.7; }
 @media (max-width: 700px) { .page-title { font-size: 30px; } .cover { height: 160px; } }
 
@@ -348,7 +361,8 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
 .folder-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .folder-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; text-align: left; background: var(--bg); color: var(--text); transition: box-shadow 0.15s, transform 0.15s; }
 .folder-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
-.folder-card-cover { height: 54px; }
+.folder-card-cover { position: relative; height: 54px; overflow: hidden; }
+.folder-card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .folder-card-body { display: flex; gap: 10px; align-items: center; padding: 10px 12px 12px; }
 .folder-card-title { font-weight: 600; font-size: 14px; }
 
@@ -523,7 +537,12 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
 
 /* ───────────── Settings · Typography ───────────── */
 .type-table { display: flex; flex-direction: column; margin: 4px 0 14px; }
-.type-row { display: grid; grid-template-columns: minmax(96px, 120px) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr) 26px; gap: 10px; align-items: center; padding: 5px 0; }
+.type-row { display: grid; grid-template-columns: minmax(96px, 120px) minmax(0, 1.5fr) minmax(0, 1fr) auto minmax(0, 1.1fr) 26px; gap: 10px; align-items: center; padding: 5px 0; }
+.type-style .st-toggle { width: 28px; height: 26px; }
+.type-row.is-extra { grid-template-columns: minmax(96px, 120px) minmax(0, 1fr); }
+.type-row.is-extra .seg { justify-self: start; }
+.type-extra-controls { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.type-extra-field { display: inline-flex; align-items: center; gap: 8px; }
 .type-head { padding: 0 0 6px; border-bottom: 1px solid var(--border); font-size: 11.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.03em; }
 .type-group { padding: 6px 0 4px; border-bottom: 1px solid var(--border); }
 .type-group:last-child { border-bottom: 0; }
@@ -535,6 +554,7 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
 .type-reset:disabled { opacity: 0; pointer-events: none; }
 @media (max-width: 720px) {
   .type-row { grid-template-columns: 1fr 1fr; }
+  .type-row.is-extra { grid-template-columns: 1fr; }
   .type-head { display: none; }
   .type-label { grid-column: 1 / -1; font-weight: 550; }
   .type-reset { justify-self: end; }
@@ -670,7 +690,6 @@ a.crumb:hover { background: var(--bg-hover); color: var(--text); }
 /* ───────────────────────── Space backgrounds (Home + course/project/research) ───────────────────────── */
 /* Viewport-fixed so the wash stays put while content scrolls; the sticky toolbar reuses it so it blends in. */
 .page.has-space-bg { background: var(--space-bg); background-attachment: fixed; }
-.page.has-space-bg .page-toolbar { background: var(--space-bg); background-attachment: fixed; backdrop-filter: none; }
 .page.has-space-bg .page-header-actions .btn.ghost:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
 
 .grad-picker { display: flex; flex-direction: column; gap: 10px; width: 300px; max-width: calc(100vw - 32px); }

@@ -76,6 +76,8 @@ function BlockMenu({ detail, onClose }) {
                 setBlockColors(editor, pos, { blockColor: c });
                 refresh();
               }}
+              onDone={onClose}
+              doneOnSwatch={false}
             />
           )}
           <ColorPicker
@@ -88,6 +90,8 @@ function BlockMenu({ detail, onClose }) {
               setBlockColors(editor, pos, { blockBg: c });
               refresh();
             }}
+            onDone={onClose}
+            doneOnSwatch={false}
           />
         </>
       )}

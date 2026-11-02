@@ -48,8 +48,10 @@ export default function Popover({
       const path = e.composedPath ? e.composedPath() : [];
       if (path.includes(el) || el.contains(e.target)) return;
       if (anchor && typeof anchor.contains === 'function' && anchor.contains(e.target)) return;
-      // Ignore clicks inside other popovers that sit on top of this one
-      if (e.target instanceof Element && e.target.closest('.hm-popover') && e.target.closest('.hm-popover') !== el) return;
+      // Ignore clicks inside popovers stacked on top of this one (opened later, e.g. a color picker opened from
+      // this panel). Clicks inside the popover *underneath* still count as outside, so a nested picker closes.
+      const other = e.target instanceof Element ? e.target.closest('.hm-popover') : null;
+      if (other && other !== el && el.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING) return;
       if (onCloseRef.current) onCloseRef.current();
     };
     const onKey = (e) => {

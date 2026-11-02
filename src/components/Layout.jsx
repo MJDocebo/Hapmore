@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import EditorOverlays from '../editor/components/EditorOverlays';
@@ -12,6 +12,13 @@ export default function Layout() {
   const location = useLocation();
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  // Every page shares this scroll container, so a new page would otherwise open at the previous page's
+  // scroll offset. Start each page at the top (deep links to a block scroll after the note loads).
+  const mainRef = useRef(null);
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [location.pathname]);
 
   // Editor plugins live outside React Router; they ask for navigation through this event.
   const navigate = useNavigate();
@@ -37,7 +44,7 @@ export default function Layout() {
     <div className={`shell ${collapsed ? 'is-collapsed' : ''} ${mobileOpen ? 'is-mobile-open' : ''}`} style={{ '--sidebar-w': `${width}px` }}>
       <Sidebar onCollapse={() => (window.innerWidth < 860 ? setMobileOpen(false) : setCollapsed(true))} width={width} onResize={setWidth} />
       {mobileOpen && <div className="shell-scrim" onClick={() => setMobileOpen(false)} />}
-      <main className="main">
+      <main className="main" ref={mainRef}>
         <button
           type="button"
           className={`icon-btn sidebar-open ${collapsed ? 'is-visible' : ''}`}

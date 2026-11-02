@@ -108,12 +108,16 @@ export default function BubbleToolbar({ editor }) {
             value={ts.color || null}
             presets={presets}
             onChange={(c) => (c ? chain().setColor(c).run() : chain().unsetColor().run())}
+            onDone={() => setPanel(null)}
+            doneOnSwatch={false}
           />
           <ColorPicker
             label="Background"
             value={ts.backgroundColor || null}
             presets={presets}
             onChange={(c) => (c ? chain().setTextBackground(c).run() : chain().unsetTextBackground().run())}
+            onDone={() => setPanel(null)}
+            doneOnSwatch={false}
           />
         </div>
       )}

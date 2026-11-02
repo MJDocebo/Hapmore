@@ -1,5 +1,5 @@
 import { DEFAULT_GOOGLE_FONTS } from './fonts';
-import { DEFAULT_FONTS, DEFAULT_SIZES, DEFAULT_TEXT_COLORS, migrateTypography } from './typography';
+import { DEFAULT_CODE_STYLE, DEFAULT_FONTS, DEFAULT_SIZES, DEFAULT_TEXT_COLORS, DEFAULT_TEXT_STYLES, migrateTypography, normalizeCodeStyle, normalizeTextStyles } from './typography';
 import { DEFAULT_BACKGROUNDS, mergeBackgrounds } from './backgrounds';
 import { BG_INTENSITIES } from './utils';
 
@@ -131,6 +131,8 @@ export const DEFAULT_SETTINGS = {
   fonts: DEFAULT_FONTS, // per typography role ('' = same as the role it follows)
   sizes: DEFAULT_SIZES, // px per role (0 = same as the role it follows) + lineHeight
   textColors: DEFAULT_TEXT_COLORS, // hex per role ('' = theme default)
+  textStyles: DEFAULT_TEXT_STYLES, // per role { bold?, italic?, underline? } (absent = role default)
+  codeStyle: DEFAULT_CODE_STYLE, // code backgrounds, code-block line spacing and line numbers
   colorPresets: DEFAULT_COLORS,
   customStyles: DEFAULT_CUSTOM_STYLES,
   zoneDefaults: DEFAULT_ZONES,
@@ -157,6 +159,8 @@ export function mergeSettings(s = {}) {
     ...s,
     ...migrateTypography(s.fonts, s.sizes),
     textColors: { ...DEFAULT_TEXT_COLORS, ...(s.textColors || {}) },
+    textStyles: normalizeTextStyles(s.textStyles),
+    codeStyle: normalizeCodeStyle(s.codeStyle),
     colorPresets: Array.isArray(s.colorPresets) ? s.colorPresets : DEFAULT_COLORS,
     customStyles: Array.isArray(s.customStyles) ? s.customStyles.map((x) => upgradeStyle(x, Number(s.sizes?.body) || 16)) : DEFAULT_CUSTOM_STYLES,
     fontLibrary: Array.isArray(s.fontLibrary) ? s.fontLibrary.filter((f) => f && f.name && !f.system) : DEFAULT_GOOGLE_FONTS,

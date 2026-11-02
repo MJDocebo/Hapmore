@@ -16,7 +16,7 @@ function ColorChip({ label, value, onChange }) {
       </button>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setAnchor(null)} className="hm-menu pad">
-          <ColorPicker label={`${label} color`} value={value} presets={presets} allowNone={false} onChange={(c) => c && onChange(c)} />
+          <ColorPicker label={`${label} color`} value={value} presets={presets} allowNone={false} onChange={(c) => c && onChange(c)} onDone={() => setAnchor(null)} />
         </Popover>
       )}
     </>

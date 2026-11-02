@@ -4,7 +4,7 @@ import { useApp } from '../store/useApp';
 import { supabase, emailToUsername } from '../lib/supabase';
 import { DEFAULT_SETTINGS, DEFAULT_COLORS, DEFAULT_CUSTOM_STYLES, DEFAULT_ZONES, ZONE_TEMPLATES, BLANK_STYLE, validateWrapper } from '../lib/defaults';
 import { fontsByGroup, fontStack, loadFont, setFontLibrary } from '../lib/fonts';
-import { LINE_HEIGHTS, ROLE_LABELS, SIZE_OPTIONS, TYPE_GROUPS, TYPE_ROLES } from '../lib/typography';
+import { CODE_LINE_HEIGHTS, DEFAULT_CODE_STYLE, LINE_HEIGHTS, ROLE_LABELS, SIZE_OPTIONS, TYPE_GROUPS, TYPE_ROLES, effectiveStyle, normalizeCodeStyle, withStyleFlag } from '../lib/typography';
 import FontLibrary from './FontLibrary';
 import { cssId, isHex, normalizeHex, shortId, sanitizeEmojiName, bgTint, BG_INTENSITIES } from '../lib/utils';
 import { pickFile } from '../lib/storage';
@@ -14,7 +14,7 @@ import EmojiPicker from '../components/EmojiPicker';
 import Popover from '../components/Popover';
 import GradientPicker from '../components/GradientPicker';
 import { BG_SCOPES, DEFAULT_BACKGROUNDS, bgCss, bgLabel } from '../lib/backgrounds';
-import { Sun, Moon, Monitor, Plus, Trash, RotateCcw, Upload, Smile, Italic, UnderlineIcon } from '../components/icons';
+import { Sun, Moon, Monitor, Plus, Trash, RotateCcw, Upload, Smile, Bold, Italic, UnderlineIcon } from '../components/icons';
 
 const TABS = [
   { id: 'appearance', label: 'Appearance' },
@@ -81,7 +81,7 @@ function ColorButton({ value, onChange, presets, label, noneLabel = 'Default', t
       </button>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setAnchor(null)} className="hm-menu pad">
-          <ColorPicker label={label} value={value} presets={presets} onChange={(c) => onChange(c || '')} />
+          <ColorPicker label={label} value={value} presets={presets} onChange={(c) => onChange(c || '')} onDone={() => setAnchor(null)} />
         </Popover>
       )}
     </>
@@ -155,11 +155,23 @@ function Appearance() {
   );
 }
 
+const STYLE_TOGGLES = [
+  { flag: 'bold', title: 'Bold', Icon: Bold },
+  { flag: 'italic', title: 'Italic', Icon: Italic },
+  { flag: 'underline', title: 'Underline', Icon: UnderlineIcon },
+];
+
 function Typography() {
-  const { fonts, sizes, textColors, colorPresets } = useApp((s) => s.settings);
+  const { fonts, sizes, textColors, textStyles, codeStyle: savedCode, colorPresets } = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
+  const code = normalizeCodeStyle(savedCode);
   const setRole = (key, field, v) => update((st) => ({ [field]: { ...st[field], [key]: v } }));
-  const isDefault = (r) => fonts[r.key] === r.font && Number(sizes[r.key]) === r.size && !textColors[r.key];
+  const setCode = (patch) => update((st) => ({ codeStyle: { ...normalizeCodeStyle(st.codeStyle), ...patch } }));
+  const toggleStyle = (key, flag) =>
+    update((st) => ({ textStyles: withStyleFlag(st.textStyles, key, flag, !effectiveStyle(st.textStyles, key)[flag]) }));
+  const codeExtrasDefault = { code: !code.blockBg && code.lineHeight === DEFAULT_CODE_STYLE.lineHeight && !code.lineNumbers, inlineCode: !code.inlineBg };
+  const isDefault = (r) =>
+    fonts[r.key] === r.font && Number(sizes[r.key]) === r.size && !textColors[r.key] && !(textStyles || {})[r.key] && codeExtrasDefault[r.key] !== false;
   const inheritName = (k) => ROLE_LABELS[k] || k;
   return (
     <div className="settings-section">
@@ -173,6 +185,7 @@ function Typography() {
           <span>Element</span>
           <span>Font</span>
           <span>Size</span>
+          <span>Style</span>
           <span>Color</span>
           <span />
         </div>
@@ -192,6 +205,17 @@ function Typography() {
                   inheritLabel={r.inheritSize === 'auto' ? 'Match surrounding text' : r.inheritSize ? `Same as ${inheritName(r.inheritSize).toLowerCase()}` : undefined}
                   onChange={(v) => setRole(r.key, 'sizes', v)}
                 />
+                <div className="st-toggles type-style" role="group" aria-label={`${r.label} formatting`}>
+                  {STYLE_TOGGLES.map(({ flag, title, Icon }) => {
+                    const on = effectiveStyle(textStyles, r.key)[flag];
+                    const own = typeof (textStyles || {})[r.key]?.[flag] === 'boolean';
+                    return (
+                      <Toggle key={flag} on={on} title={`${title}${own ? '' : ' (default)'}`} onClick={() => toggleStyle(r.key, flag)}>
+                        <Icon size={14} />
+                      </Toggle>
+                    );
+                  })}
+                </div>
                 <ColorButton
                   value={textColors[r.key]}
                   presets={colorPresets}
@@ -205,23 +229,71 @@ function Typography() {
                   title={`Reset ${r.label.toLowerCase()}`}
                   disabled={isDefault(r)}
                   onClick={() =>
-                    update((st) => ({
-                      fonts: { ...st.fonts, [r.key]: r.font },
-                      sizes: { ...st.sizes, [r.key]: r.size },
-                      textColors: { ...st.textColors, [r.key]: '' },
-                    }))
+                    update((st) => {
+                      const nextStyles = { ...(st.textStyles || {}) };
+                      delete nextStyles[r.key];
+                      const cs = normalizeCodeStyle(st.codeStyle);
+                      return {
+                        fonts: { ...st.fonts, [r.key]: r.font },
+                        sizes: { ...st.sizes, [r.key]: r.size },
+                        textColors: { ...st.textColors, [r.key]: '' },
+                        textStyles: nextStyles,
+                        ...(r.key === 'code' ? { codeStyle: { ...cs, blockBg: '', lineHeight: DEFAULT_CODE_STYLE.lineHeight, lineNumbers: false } } : {}),
+                        ...(r.key === 'inlineCode' ? { codeStyle: { ...cs, inlineBg: '' } } : {}),
+                      };
+                    })
                   }
                 >
                   <RotateCcw size={13} />
                 </button>
               </div>
             ))}
+            {group === 'Code' && (
+              <>
+                <div className="type-row is-extra">
+                  <span className="type-label">Backgrounds</span>
+                  <div className="type-extra-controls">
+                    <span className="type-extra-field">
+                      <span className="muted small">Code blocks</span>
+                      <ColorButton value={code.blockBg} presets={colorPresets} label="Code block background" noneLabel="Default" onChange={(c) => setCode({ blockBg: c || '' })} />
+                    </span>
+                    <span className="type-extra-field">
+                      <span className="muted small">Inline code</span>
+                      <ColorButton value={code.inlineBg} presets={colorPresets} label="Inline code background" noneLabel="Default" onChange={(c) => setCode({ inlineBg: c || '' })} />
+                    </span>
+                  </div>
+                </div>
+                <div className="type-row is-extra">
+                  <span className="type-label">Code line spacing</span>
+                  <div className="seg sm">
+                    {CODE_LINE_HEIGHTS.map((o) => (
+                      <button
+                        type="button"
+                        key={o.value}
+                        className={Math.abs(code.lineHeight - o.value) < 0.001 ? 'is-active' : ''}
+                        onClick={() => setCode({ lineHeight: o.value })}
+                        title={`${o.value} × code font size (code blocks only)`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="type-row is-extra">
+                  <span className="type-label">Line numbers</span>
+                  <div className="seg sm">
+                    <button type="button" className={!code.lineNumbers ? 'is-active' : ''} onClick={() => setCode({ lineNumbers: false })}>Off</button>
+                    <button type="button" className={code.lineNumbers ? 'is-active' : ''} onClick={() => setCode({ lineNumbers: true })}>On</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         ))}
         <div className="type-group">
           <div className="type-group-label">Spacing</div>
           <div className="type-row is-line-height">
-            <span className="type-label">Line height</span>
+            <span className="type-label" title="Text, headings, quotes and callouts. Code blocks have their own setting above.">Line height</span>
             <div className="seg sm">
               {LINE_HEIGHTS.map((o) => (
                 <button
@@ -242,7 +314,7 @@ function Typography() {
         <button
           type="button"
           className="btn sm"
-          onClick={() => update({ fonts: DEFAULT_SETTINGS.fonts, sizes: DEFAULT_SETTINGS.sizes, textColors: DEFAULT_SETTINGS.textColors })}
+          onClick={() => update({ fonts: DEFAULT_SETTINGS.fonts, sizes: DEFAULT_SETTINGS.sizes, textColors: DEFAULT_SETTINGS.textColors, textStyles: DEFAULT_SETTINGS.textStyles, codeStyle: DEFAULT_SETTINGS.codeStyle })}
         >
           <RotateCcw size={14} /> Reset all typography
         </button>
@@ -271,9 +343,22 @@ function Typography() {
             </div>
           </div>
           <div className="hm-code">
-            <pre>
-              <code>{'for (int i = 0; i < n; i++) {\n  sum += a[i];\n}'}</code>
-            </pre>
+            <div className={`hm-code-body ${code.lineNumbers ? 'has-lines' : ''}`}>
+              {code.lineNumbers && (
+                <div className="hm-code-lines" aria-hidden="true">
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                </div>
+              )}
+              <pre>
+                <code className="hljs">
+                  <span className="hljs-keyword">for</span> (<span className="hljs-type">int</span> i = <span className="hljs-number">0</span>; i &lt; n; i++) {'{'}
+                  {'\n  '}sum += a[i]; <span className="hljs-comment">// accumulate</span>
+                  {'\n}'}
+                </code>
+              </pre>
+            </div>
           </div>
         </div>
       </div>
@@ -540,7 +625,7 @@ function ZoneRow({ z, i, onChange, presets }) {
       {emoji && <EmojiPicker anchor={emoji} onClose={() => setEmoji(null)} onSelect={(v) => onChange({ emoji: v })} onRemove={() => onChange({ emoji: '' })} />}
       {color && (
         <Popover anchor={color} onClose={() => setColor(null)} className="hm-menu pad">
-          <ColorPicker value={z.color} presets={presets} onChange={(c) => onChange({ color: c })} />
+          <ColorPicker value={z.color} presets={presets} onChange={(c) => onChange({ color: c })} onDone={() => setColor(null)} />
         </Popover>
       )}
     </div>

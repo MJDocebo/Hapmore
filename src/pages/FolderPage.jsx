@@ -11,6 +11,8 @@ import Editor from '../editor/Editor';
 import TasksWidget from '../components/TasksWidget';
 import FlaggedAnnotations from '../components/FlaggedAnnotations';
 import NoteCard from '../components/NoteCard';
+import FolderIcon from '../components/FolderIcon';
+import Breadcrumbs from '../components/Breadcrumbs';
 import Menu from '../components/Menu';
 import { LayoutGrid, More, Trash, Plus, ChevronDown, Paintbrush } from '../components/icons';
 import { noteTypeMenuItems } from '../lib/noteTypes';
@@ -90,9 +92,12 @@ export default function FolderPage() {
   return (
     <div className={`page folder-page ${bg.className}`} style={bg.style} data-width={pageWidth}>
       <div className="page-toolbar">
-        <div className="crumbs">
-          <span className="muted">{meta.label}</span>
-        </div>
+        <Breadcrumbs
+          items={[
+            { key: 'kind', label: meta.label },
+            { key: 'folder', label: folder.code || folder.name || meta.newName, icon: <FolderIcon folder={folder} size={13} /> },
+          ]}
+        />
         <button type="button" ref={menuBtn} className="icon-btn" onClick={(e) => setMenu(e.currentTarget)} title="More">
           <More size={17} />
         </button>

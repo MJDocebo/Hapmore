@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/useApp';
 import { normalizeFourZone, FOLDER_KINDS } from '../lib/defaults';
@@ -14,8 +14,9 @@ import AnnotationsPanel from '../notes/AnnotationsPanel';
 import PageHeader from '../components/PageHeader';
 import TagInput from '../components/TagInput';
 import FolderIcon from '../components/FolderIcon';
+import Breadcrumbs from '../components/Breadcrumbs';
 import Menu from '../components/Menu';
-import { MessageSquare, More, Copy, Trash, LayoutGrid, FileText, ChevronRight, Loader, Check, Move, MoveHorizontal, LinkIcon } from '../components/icons';
+import { MessageSquare, More, Copy, Trash, LayoutGrid, FileText, Loader, Check, Move, MoveHorizontal, LinkIcon } from '../components/icons';
 
 function SaveStatus({ status }) {
   if (status === 'saving' || status === 'dirty')
@@ -275,19 +276,13 @@ export default function NotePage() {
     <div className={`note-layout ${panelOpen ? 'has-panel' : ''}`}>
       <div className={`page note-page ${isFour ? 'is-fourzone' : ''} ${isPdf ? 'is-pdf' : ''}`} data-width={pageWidth}>
         <div className="page-toolbar">
-          <div className="crumbs">
-            {kind && <span className="muted">{kind.label}</span>}
-            {folder && (
-              <>
-                <ChevronRight size={13} className="muted" />
-                <Link to={`/f/${folder.id}`} className="crumb">
-                  <FolderIcon folder={folder} size={13} /> {folder.code || folder.name}
-                </Link>
-              </>
-            )}
-            <ChevronRight size={13} className="muted" />
-            <span className="crumb is-current">{noteMeta?.title || note.title || 'Untitled'}</span>
-          </div>
+          <Breadcrumbs
+            items={[
+              kind && { key: 'kind', label: kind.label },
+              folder && { key: 'folder', label: folder.code || folder.name || 'Untitled', to: `/f/${folder.id}`, icon: <FolderIcon folder={folder} size={13} /> },
+              { key: 'note', label: noteMeta?.title || note.title || 'Untitled' },
+            ]}
+          />
           <SaveStatus status={status} />
           <button type="button" className={`btn ghost sm ${panelOpen ? 'is-active' : ''}`} onClick={() => setPanelOpen(!panelOpen)} title="Annotations">
             <MessageSquare size={15} /> {openCount || ''}

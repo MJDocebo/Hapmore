@@ -41,6 +41,51 @@ export const CodeBlock = CodeBlockLowlight.extend({
         if (!this.editor.isActive('codeBlock')) return false;
         return this.editor.commands.insertContent('    ');
       },
+      // New lines keep the indentation (leading spaces / tabs) of the line the cursor is on.
+      Enter: ({ editor }) => {
+        const { selection } = editor.state;
+        const { $from, $to } = selection;
+        if ($from.parent.type.name !== this.name || !$from.sameParent($to)) return false;
+        const text = $from.parent.textContent;
+        const before = text.slice(0, $from.parentOffset);
+        const line = before.slice(before.lastIndexOf('\n') + 1);
+        const indent = /^[ \t]*/.exec(line)[0];
+        // Like the default triple-Enter: two blank lines at the end leave the block. Lines holding only the
+        // auto-inserted indentation count as blank.
+        if (selection.empty && $from.parentOffset === text.length && this.options.exitOnTripleEnter !== false) {
+          const m = /\n[ \t]*\n[ \t]*$/.exec(text);
+          if (m) {
+            const from = $from.start() + m.index;
+            return editor
+              .chain()
+              .command(({ tr }) => {
+                tr.delete(from, $from.pos);
+                return true;
+              })
+              .exitCode()
+              .run();
+          }
+        }
+        return editor.commands.command(({ tr }) => {
+          tr.insertText(`\n${indent}`, selection.from, selection.to);
+          tr.scrollIntoView();
+          return true;
+        });
+      },
+      // Removes one indentation level (up to 4 spaces or a tab) from the current line.
+      'Shift-Tab': ({ editor }) => {
+        const { $from } = editor.state.selection;
+        if ($from.parent.type.name !== this.name) return false;
+        const text = $from.parent.textContent;
+        const lineStart = text.slice(0, $from.parentOffset).lastIndexOf('\n') + 1;
+        const m = /^( {1,4}|\t)/.exec(text.slice(lineStart));
+        if (!m) return true; // nothing to remove; keep focus in the block
+        const pos = $from.start() + lineStart;
+        return editor.commands.command(({ tr }) => {
+          tr.delete(pos, pos + m[0].length);
+          return true;
+        });
+      },
       'Mod-a': () => {
         // first Mod-A selects just the code block's contents
         const { state } = this.editor;

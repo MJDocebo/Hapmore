@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useApp } from '../store/useApp';
 import { buildCustomStyleCss, fontStack, loadFont, setFontLibrary } from './fonts';
-import { TYPE_ROLES, typographyVars } from './typography';
+import { TYPE_ROLES, toneFor, typographyVars } from './typography';
 import { BG_INTENSITIES } from './utils';
 
 function systemDark() {
@@ -11,7 +11,7 @@ function systemDark() {
 /** Applies theme, typography and custom inline styles from settings to the document. */
 export function useAppearance() {
   const settings = useApp((s) => s.settings);
-  const { theme, fonts, sizes, textColors, customStyles, fontLibrary, bgIntensity } = settings;
+  const { theme, fonts, sizes, textColors, textStyles, codeStyle, customStyles, fontLibrary, bgIntensity } = settings;
   const resolvedTheme = useApp((s) => s.resolvedTheme);
   setFontLibrary(fontLibrary); // keep the font registry in sync before stacks are computed
 
@@ -32,11 +32,15 @@ export function useAppearance() {
   useEffect(() => {
     const root = document.documentElement.style;
     TYPE_ROLES.forEach((r) => fonts[r.key] && loadFont(fonts[r.key]));
-    Object.entries(typographyVars({ fonts, sizes, textColors }, fontStack, resolvedTheme)).forEach(([k, v]) => {
+    Object.entries(typographyVars({ fonts, sizes, textColors, textStyles, codeStyle }, fontStack, resolvedTheme)).forEach(([k, v]) => {
       if (v === null) root.removeProperty(k);
       else root.setProperty(k, v);
     });
-  }, [fonts, sizes, textColors, fontLibrary, resolvedTheme]);
+    // Syntax-highlight palette follows the code-block background's tone when one is chosen (else the theme).
+    const tone = toneFor(codeStyle?.blockBg);
+    if (tone) document.documentElement.dataset.codeTone = tone;
+    else delete document.documentElement.dataset.codeTone;
+  }, [fonts, sizes, textColors, textStyles, codeStyle, fontLibrary, resolvedTheme]);
 
   useEffect(() => {
     // Scales every user-chosen background tint (highlights, block backgrounds, callouts, zones, text styles).

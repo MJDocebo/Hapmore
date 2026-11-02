@@ -4,13 +4,23 @@ import { X } from './icons';
 
 const keep = (e) => e.preventDefault();
 
-/** Preset swatches + native picker + hex input. onChange(hex | null). */
-export default function ColorPicker({ value, onChange, presets = [], allowNone = true, label, compact = false }) {
+/**
+ * Preset swatches + native picker + hex input. onChange(hex | null).
+ * onDone: called after a committed choice (Apply / Enter, and swatch or Default clicks unless doneOnSwatch is false)
+ * so the hosting popup can close. Dragging in the native picker previews live and never closes.
+ */
+export default function ColorPicker({ value, onChange, onDone, doneOnSwatch = true, presets = [], allowNone = true, label, compact = false }) {
   const [hex, setHex] = useState(value || '');
   useEffect(() => setHex(value || ''), [value]);
   const apply = () => {
     const v = normalizeHex(hex);
-    if (isHex(v)) onChange(v);
+    if (!isHex(v)) return;
+    onChange(v);
+    onDone?.();
+  };
+  const pick = (v) => {
+    onChange(v);
+    if (doneOnSwatch) onDone?.();
   };
   const native = isHex(hex) ? normalizeHex(hex).slice(0, 7) : '#2383e2';
   return (
@@ -18,7 +28,7 @@ export default function ColorPicker({ value, onChange, presets = [], allowNone =
       {label && <div className="hm-cp-label">{label}</div>}
       <div className="hm-swatches">
         {allowNone && (
-          <button type="button" className={`hm-swatch is-none ${!value ? 'is-active' : ''}`} title="Default" onMouseDown={keep} onClick={() => onChange(null)}>
+          <button type="button" className={`hm-swatch is-none ${!value ? 'is-active' : ''}`} title="Default" onMouseDown={keep} onClick={() => pick(null)}>
             <X size={12} />
           </button>
         )}
@@ -30,7 +40,7 @@ export default function ColorPicker({ value, onChange, presets = [], allowNone =
             style={{ background: p.hex }}
             title={`${p.name} · ${p.hex}`}
             onMouseDown={keep}
-            onClick={() => onChange(p.hex)}
+            onClick={() => pick(p.hex)}
           />
         ))}
       </div>

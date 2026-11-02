@@ -49,7 +49,7 @@ function ZoneHeader({ zone, index, total, layout, isPrimary, onChange, onMove, o
       )}
       {color && (
         <Popover anchor={color} onClose={() => setColor(null)} className="hm-menu pad">
-          <ColorPicker label="Zone color" value={zone.color} presets={presets} onChange={(c) => onChange({ color: c })} />
+          <ColorPicker label="Zone color" value={zone.color} presets={presets} onChange={(c) => onChange({ color: c })} onDone={() => setColor(null)} />
         </Popover>
       )}
       {menu && (

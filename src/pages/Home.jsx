@@ -7,7 +7,7 @@ import TasksWidget from '../components/TasksWidget';
 import FlaggedAnnotations from '../components/FlaggedAnnotations';
 import NoteCard from '../components/NoteCard';
 import FolderIcon from '../components/FolderIcon';
-import { coverBackground } from '../components/Cover';
+import FolderCardCover from '../components/FolderCardCover';
 import GradientPicker from '../components/GradientPicker';
 import Popover from '../components/Popover';
 import { Plus, Paintbrush } from '../components/icons';
@@ -114,7 +114,7 @@ export default function Home() {
                   .sort((a, b) => a.position - b.position)
                   .map((f) => (
                     <button type="button" key={f.id} className="folder-card" onClick={() => navigate(`/f/${f.id}`)}>
-                      <div className="folder-card-cover" style={{ background: f.cover && f.cover.kind !== 'image' ? coverBackground(f.cover) : 'var(--bg-soft)' }} />
+                      <FolderCardCover folder={f} />
                       <div className="folder-card-body">
                         <FolderIcon folder={f} size={22} />
                         <div>
