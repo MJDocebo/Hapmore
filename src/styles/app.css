@@ -689,7 +689,8 @@ a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); col
 
 /* ───────────────────────── Space backgrounds (Home + course/project/research) ───────────────────────── */
 /* Viewport-fixed so the wash stays put while content scrolls; the sticky toolbar reuses it so it blends in. */
-.page.has-space-bg { background: var(--space-bg); background-attachment: fixed; }
+/* Painted on the scroll container so it stays put while scrolling (works on iPadOS Safari, unlike attachment: fixed). */
+.main.has-space-bg { background: var(--space-bg); }
 .page.has-space-bg .page-header-actions .btn.ghost:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
 
 .grad-picker { display: flex; flex-direction: column; gap: 10px; width: 300px; max-width: calc(100vw - 32px); }

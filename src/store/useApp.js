@@ -29,6 +29,7 @@ export const useApp = create((set, get) => ({
   dialog: null, // { id, kind: 'confirm' | 'prompt', title, message, confirmLabel, danger, resolve }
   activeEditor: null,
   resolvedTheme: 'light',
+  spaceBg: null, // CSS gradient for the current Home / space page (painted by Layout's scroll container)
   annotationsVersion: 0,
 
   // ---------------------------------------------------------------- toasts

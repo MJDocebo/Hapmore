@@ -1,5 +1,5 @@
 import { useApp } from '../store/useApp';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { debounce } from './utils';
 import { bgCss, resolveBg } from './backgrounds';
 
@@ -49,10 +49,17 @@ export function usePageWidth(override) {
 
 /**
  * Gradient background for Home (scope 'home') or a space (scope = folder kind, override = folder.background).
- * Returns props to spread on the `.page` element.
+ * The gradient is painted by the app's scroll container (see Layout), not the page: a scroll container's own
+ * background stays put while content scrolls, which gives a "fixed" backdrop without `background-attachment:
+ * fixed` — iPadOS / iOS Safari doesn't support that and cut the gradient off partway down the page.
+ * Returns props to spread on the `.page` element (a class for styling tweaks only).
  */
 export function useSpaceBackground(scope, override) {
   const backgrounds = useApp((s) => s.settings.backgrounds);
   const css = bgCss(resolveBg(backgrounds, scope, override));
-  return css ? { className: 'has-space-bg', style: { '--space-bg': css } } : { className: '', style: undefined };
+  useLayoutEffect(() => {
+    useApp.setState({ spaceBg: css || null });
+    return () => useApp.setState({ spaceBg: null });
+  }, [css]);
+  return css ? { className: 'has-space-bg', style: undefined } : { className: '', style: undefined };
 }

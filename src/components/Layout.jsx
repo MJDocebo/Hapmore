@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import EditorOverlays from '../editor/components/EditorOverlays';
 import { useLocalStorage } from '../lib/hooks';
+import { useApp } from '../store/useApp';
 import { PanelLeftOpen } from './icons';
 
 export default function Layout() {
@@ -16,6 +17,7 @@ export default function Layout() {
   // Every page shares this scroll container, so a new page would otherwise open at the previous page's
   // scroll offset. Start each page at the top (deep links to a block scroll after the note loads).
   const mainRef = useRef(null);
+  const spaceBg = useApp((s) => s.spaceBg); // gradient set by Home / space pages via useSpaceBackground
   useLayoutEffect(() => {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [location.pathname]);
@@ -44,7 +46,7 @@ export default function Layout() {
     <div className={`shell ${collapsed ? 'is-collapsed' : ''} ${mobileOpen ? 'is-mobile-open' : ''}`} style={{ '--sidebar-w': `${width}px` }}>
       <Sidebar onCollapse={() => (window.innerWidth < 860 ? setMobileOpen(false) : setCollapsed(true))} width={width} onResize={setWidth} />
       {mobileOpen && <div className="shell-scrim" onClick={() => setMobileOpen(false)} />}
-      <main className="main" ref={mainRef}>
+      <main className={`main ${spaceBg ? 'has-space-bg' : ''}`} style={spaceBg ? { '--space-bg': spaceBg } : undefined} ref={mainRef}>
         <button
           type="button"
           className={`icon-btn sidebar-open ${collapsed ? 'is-visible' : ''}`}
