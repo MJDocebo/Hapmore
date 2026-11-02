@@ -49,8 +49,8 @@ function TaskRow({ t, allMode, folders, update, remove }) {
           </span>
           {due && <span className={`task-due is-${due.tone}`}><Calendar size={11} /> {due.label}</span>}
           {folder && (
-            <span className="task-folder">
-              <FolderIcon folder={folder} size={11} /> {folder.code || folder.name}
+            <span className="task-folder" title={folder.code ? `${folder.code} · ${folder.name}` : folder.name}>
+              <FolderIcon folder={folder} size={11} /> <span className="task-folder-name">{folder.code || folder.name}</span>
             </span>
           )}
         </div>
@@ -117,6 +117,9 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
   const open = visible.filter((t) => !t.done);
   const done = visible.filter((t) => t.done);
 
+  const folderLabel = (f) => (f.code ? `${f.code} · ${f.name}` : f.name);
+  const pickedFolder = draft.folder_id ? folders.find((f) => f.id === draft.folder_id) : null;
+
   const add = async (e) => {
     e.preventDefault();
     const titleText = draft.title.trim();
@@ -161,10 +164,16 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
           </select>
           <input type="date" className="input sm" value={draft.due_date} onChange={(e) => setDraft({ ...draft, due_date: e.target.value })} />
           {allMode && (
-            <select className="input sm" value={draft.folder_id} onChange={(e) => setDraft({ ...draft, folder_id: e.target.value })}>
+            <select
+              className="input sm task-folder-select"
+              value={draft.folder_id}
+              title={pickedFolder ? folderLabel(pickedFolder) : 'General (no course or project)'}
+              aria-label="Course or project"
+              onChange={(e) => setDraft({ ...draft, folder_id: e.target.value })}
+            >
               <option value="">General</option>
               {folders.map((f) => (
-                <option key={f.id} value={f.id}>{f.code ? `${f.code} · ${f.name}` : f.name}</option>
+                <option key={f.id} value={f.id}>{folderLabel(f)}</option>
               ))}
             </select>
           )}

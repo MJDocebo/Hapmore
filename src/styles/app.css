@@ -286,7 +286,7 @@ a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); col
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.card { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card { min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .card-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
 .empty-hint { padding: 14px 4px; color: var(--text-3); font-size: 13px; }
@@ -299,7 +299,10 @@ a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); col
 /* Tasks */
 .task-add { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .task-add-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.task-add-row .input.sm { flex: 1 1 110px; }
+/* min-width: 0 lets controls shrink below their longest option (a native select otherwise sizes to it and overflows). */
+.task-add-row .input.sm { flex: 1 1 110px; min-width: 0; max-width: 100%; }
+.task-add-row .task-folder-select { flex: 2 1 160px; }
+.task-add-row select.input { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-add-row .btn { flex: none; }
 .task-list { list-style: none; margin: 0; padding: 0; }
 .task { display: flex; align-items: flex-start; gap: 9px; padding: 7px 2px; border-top: 1px solid var(--border); }
@@ -308,7 +311,8 @@ a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); col
 .task-title { width: 100%; border: 0; outline: none; background: transparent; font-size: 13.5px; padding: 1px 0; color: var(--text); }
 .task.is-done .task-title { text-decoration: line-through; color: var(--text-3); }
 .task-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; font-size: 11.5px; color: var(--text-3); }
-.task-meta > span { display: inline-flex; align-items: center; gap: 3px; }
+.task-meta > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; max-width: 100%; }
+.task-folder-name, .flag-note-title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-kind.is-deadline { color: var(--danger); }
 .task-kind.is-reminder { color: #9065b0; }
 .task-due.is-danger { color: var(--danger); font-weight: 600; }
@@ -328,7 +332,10 @@ a.crumb:hover { background: color-mix(in srgb, var(--text) 8%, transparent); col
 .flag-main { flex: 1; min-width: 0; }
 .flag-body { font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
 .flag-quote { margin-top: 3px; font-size: 12.5px; color: var(--text-3); border-left: 2px solid #cb912f; padding-left: 7px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.flag-meta { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; }
+.flag-meta { display: flex; align-items: center; gap: 4px; min-width: 0; margin-top: 3px; font-size: 12px; }
+.flag-note { min-width: 0; max-width: 100%; }
+.flag-note svg, .flag-note img, .flag-time { flex: none; }
+.flag-time { white-space: nowrap; }
 .flag .icon-btn { opacity: 0; }
 .flag:hover .icon-btn { opacity: 1; }
 

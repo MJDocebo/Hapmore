@@ -61,10 +61,10 @@ export default function FlaggedAnnotations({ folderId, title = 'To look up' }) {
                 <div className="flag-body">{a.body || <span className="muted">(no text)</span>}</div>
                 {a.quote && <div className="flag-quote">“{a.quote}”</div>}
                 <div className="flag-meta">
-                  <button type="button" className="link-btn" onClick={() => navigate(`/n/${a.note_id}?block=${encodeURIComponent(a.block_id || '')}&a=${a.id}`)}>
-                    <EmojiIcon value={a.notes?.icon} size={12} /> {a.notes?.title || 'Untitled'} <ExternalLink size={11} />
+                  <button type="button" className="link-btn flag-note" title={a.notes?.title || 'Untitled'} onClick={() => navigate(`/n/${a.note_id}?block=${encodeURIComponent(a.block_id || '')}&a=${a.id}`)}>
+                    <EmojiIcon value={a.notes?.icon} size={12} /> <span className="flag-note-title">{a.notes?.title || 'Untitled'}</span> <ExternalLink size={11} />
                   </button>
-                  <span className="muted">· {timeAgo(a.created_at)}</span>
+                  <span className="muted flag-time">· {timeAgo(a.created_at)}</span>
                 </div>
               </div>
               <button type="button" className="icon-btn" title="Remove from overview" onClick={() => update(a.id, { show_on_overview: false })}>

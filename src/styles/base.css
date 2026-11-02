@@ -310,6 +310,10 @@ input[type='checkbox'] { accent-color: var(--accent); width: 15px; height: 15px;
 .hm-menu-item.has-desc svg { margin-top: 2px; }
 .hm-menu-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
 .hm-menu-desc { font-size: 12px; color: var(--text-3); line-height: 1.35; }
+/* List menus (e.g. Move to) stay within the window; long names truncate with an ellipsis. */
+.hm-menu.is-list { max-width: min(380px, calc(100vw - 16px)); }
+.hm-menu-item > .hm-menu-name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hm-menu-text .hm-menu-name { overflow-wrap: anywhere; }
 .btn-caret { margin-left: 1px; margin-right: -3px; opacity: 0.85; }
 .btn.is-open .btn-caret { transform: rotate(180deg); }
 .pill { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 500; background: var(--bg-hover); color: var(--text-2); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
