@@ -39,8 +39,9 @@ function Greeting({ text }) {
           {wi < words.length - 1 ? ' ' : ''}
         </span>
       ))}{' '}
+      {/* Outer span: one-time entrance. Inner span: hover wave — kept separate so hovering never restarts the entrance. */}
       <span className="greet-wave" aria-hidden="true" style={{ '--i': Math.min(i, 40) }}>
-        👋
+        <span className="greet-wave-hand">👋</span>
       </span>
     </h1>
   );

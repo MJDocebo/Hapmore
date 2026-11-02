@@ -4,6 +4,92 @@ import { useApp } from '../store/useApp';
 import { formatDue } from '../lib/utils';
 import { Plus, Trash, Calendar, Bell, Flag, Check } from './icons';
 import FolderIcon from './FolderIcon';
+import AutoTextarea from './AutoTextarea';
+
+export const TASK_MAX = 255;
+/** Tasks are single-line text: pasted line breaks become spaces; capped at TASK_MAX characters. */
+const cleanTitle = (v) => v.replace(/\s*[\r\n]+\s*/g, ' ').slice(0, TASK_MAX);
+
+/**
+ * Date input with a visible "Due date" hint while empty. iPadOS / iOS Safari draws an empty date input as a blank
+ * box (no mm/dd/yyyy), so the hint overlays it until focused or filled.
+ */
+function DateField({ value, onChange, label = 'Due date' }) {
+  return (
+    <label className={`date-field ${value ? '' : 'is-empty'}`}>
+      <input type="date" className="input sm" value={value} aria-label={label} onChange={onChange} />
+      {!value && (
+        <span className="date-field-hint" aria-hidden="true">
+          <Calendar size={13} /> {label}
+        </span>
+      )}
+    </label>
+  );
+}
+
+/** Saved task text: wraps fully; click (or Enter / Space when focused) to edit in place. */
+function TaskTitle({ title, done, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!editing) setValue(title);
+  }, [title, editing]);
+  useEffect(() => {
+    if (!editing || !ref.current) return;
+    const el = ref.current;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [editing]);
+
+  const commit = () => {
+    const next = value.trim();
+    setEditing(false);
+    if (next && next !== title) onSave(next);
+    else setValue(title);
+  };
+
+  if (!editing) {
+    return (
+      <div
+        className={`task-title ${done ? 'is-done' : ''}`}
+        role="button"
+        tabIndex={0}
+        title="Click to edit"
+        onClick={() => setEditing(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setEditing(true);
+          }
+        }}
+      >
+        {title}
+      </div>
+    );
+  }
+  return (
+    <AutoTextarea
+      ref={ref}
+      className="task-title is-editing"
+      value={value}
+      maxLength={TASK_MAX}
+      aria-label="Task text"
+      onChange={(e) => setValue(cleanTitle(e.target.value))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setValue(title);
+          setEditing(false);
+        }
+      }}
+    />
+  );
+}
 
 const KINDS = [
   { id: 'task', label: 'Task', Icon: Check },
@@ -37,12 +123,7 @@ function TaskRow({ t, allMode, folders, update, remove }) {
     <li className={`task ${t.done ? 'is-done' : ''}`}>
       <input type="checkbox" checked={t.done} onChange={(e) => update(t.id, { done: e.target.checked })} />
       <div className="task-main">
-        <input
-          className="task-title"
-          defaultValue={t.title}
-          onBlur={(e) => e.target.value.trim() && e.target.value !== t.title && update(t.id, { title: e.target.value.trim() })}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        />
+        <TaskTitle title={t.title} done={t.done} onSave={(title) => update(t.id, { title })} />
         <div className="task-meta">
           <span className={`task-kind is-${t.kind}`}>
             <kind.Icon size={11} /> {kind.label}
@@ -122,7 +203,7 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
 
   const add = async (e) => {
     e.preventDefault();
-    const titleText = draft.title.trim();
+    const titleText = cleanTitle(draft.title).trim();
     if (!titleText) return;
     const row = {
       title: titleText,
@@ -155,14 +236,35 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
         <span className="muted">{open.length} open</span>
       </header>
       <form className="task-add" onSubmit={add}>
-        <input className="input" placeholder="Add a task, deadline or reminder…" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+        <div className="task-input-wrap">
+          <AutoTextarea
+            className="input task-input"
+            placeholder="Add a task, deadline or reminder…"
+            value={draft.title}
+            maxLength={TASK_MAX}
+            aria-label="New task"
+            onChange={(e) => setDraft({ ...draft, title: cleanTitle(e.target.value) })}
+            onKeyDown={(e) => {
+              // Enter adds (tasks are single-line); the text still wraps so long entries stay fully visible.
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+          />
+          {draft.title.length >= TASK_MAX - 55 && (
+            <span className={`task-count ${draft.title.length >= TASK_MAX ? 'is-max' : ''}`} aria-live="polite">
+              {draft.title.length}/{TASK_MAX}
+            </span>
+          )}
+        </div>
         <div className="task-add-row">
           <select className="input sm" value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
             {KINDS.map((k) => (
               <option key={k.id} value={k.id}>{k.label}</option>
             ))}
           </select>
-          <input type="date" className="input sm" value={draft.due_date} onChange={(e) => setDraft({ ...draft, due_date: e.target.value })} />
+          <DateField value={draft.due_date} onChange={(e) => setDraft({ ...draft, due_date: e.target.value })} />
           {allMode && (
             <select
               className="input sm task-folder-select"

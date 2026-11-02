@@ -11,7 +11,9 @@ const AutoTextarea = forwardRef(function AutoTextarea({ value, className = '', .
     const t = el.current;
     if (!t) return;
     t.style.height = '0px';
-    t.style.height = `${t.scrollHeight}px`;
+    // scrollHeight excludes borders; add them back so bordered (border-box) textareas aren't clipped.
+    const borders = t.offsetHeight - t.clientHeight;
+    t.style.height = `${t.scrollHeight + Math.max(0, borders)}px`;
   }, []);
   useEffect(fit, [value, fit]);
   useEffect(() => {

@@ -62,16 +62,23 @@
 .hm-prose ul[data-type='taskList'] li[data-checked='true'] > div { color: var(--text-3); text-decoration: line-through; }
 .hm-prose ul[data-type='taskList'] input[type='checkbox'] { width: 16px; height: 16px; }
 
-/* Placeholder — drawn only on the empty paragraph/heading itself, never on its container */
+/* Placeholder — drawn only on the empty paragraph/heading itself, never on its container.
+   Absolutely positioned (no effect on layout or the caret) and capped to the block's width: a hint on an empty
+   line mid-note truncates with an ellipsis; the hint of a completely empty editor (e.g. a zone) wraps instead,
+   since nothing sits below it. */
+.hm-prose :is(p, h1, h2, h3, h4).is-empty:not([data-placeholder='']) { position: relative; }
 .hm-prose :is(p, h1, h2, h3, h4).is-empty:not([data-placeholder=''])::before {
   content: attr(data-placeholder);
-  float: left;
-  height: 0;
+  position: absolute;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-3);
   opacity: 0.75;
   pointer-events: none;
-  white-space: nowrap;
 }
+.hm-prose :is(p, h1, h2, h3, h4).is-empty.is-editor-empty::before { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
 .hm-prose:not(.ProseMirror-focused) :is(p, h1, h2, h3, h4).is-empty:not(.is-editor-empty)::before { content: none; }
 
 /* Annotations & flashing */

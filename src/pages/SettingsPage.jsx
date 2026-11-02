@@ -8,13 +8,14 @@ import { CODE_LINE_HEIGHTS, DEFAULT_CODE_STYLE, LINE_HEIGHTS, ROLE_LABELS, SIZE_
 import FontLibrary from './FontLibrary';
 import { cssId, isHex, normalizeHex, shortId, sanitizeEmojiName, bgTint, BG_INTENSITIES } from '../lib/utils';
 import { pickFile } from '../lib/storage';
+import { deleteAllData, downloadBlob, exportAllData } from '../lib/accountData';
 import ColorPicker from '../components/ColorPicker';
 import EmojiIcon from '../components/EmojiIcon';
 import EmojiPicker from '../components/EmojiPicker';
 import Popover from '../components/Popover';
 import GradientPicker from '../components/GradientPicker';
 import { BG_SCOPES, DEFAULT_BACKGROUNDS, bgCss, bgLabel } from '../lib/backgrounds';
-import { Sun, Moon, Monitor, Plus, Trash, RotateCcw, Upload, Smile, Bold, Italic, UnderlineIcon } from '../components/icons';
+import { Sun, Moon, Monitor, Plus, Trash, RotateCcw, Upload, Smile, Bold, Italic, UnderlineIcon, Download, AlertTriangle } from '../components/icons';
 
 const TABS = [
   { id: 'appearance', label: 'Appearance' },
@@ -730,6 +731,125 @@ function Emojis() {
   );
 }
 
+const DELETE_PHRASE = 'DELETE';
+
+function DataTools() {
+  const toast = useApp((s) => s.toast);
+  const loadAll = useApp((s) => s.loadAll);
+  const [includeFiles, setIncludeFiles] = useState(true);
+  const [exporting, setExporting] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [phrase, setPhrase] = useState('');
+  const [deleting, setDeleting] = useState('');
+  const [delErr, setDelErr] = useState('');
+  const busy = Boolean(exporting || deleting);
+
+  const runExport = async () => {
+    setExporting('Starting…');
+    try {
+      const { blob, filename, counts, missing } = await exportAllData({ includeFiles, onProgress: setExporting });
+      downloadBlob(blob, filename);
+      toast(
+        missing.length
+          ? `Exported ${counts.notes} notes — ${missing.length} file(s) couldn’t be downloaded (listed in README.md).`
+          : `Exported ${counts.notes} notes${includeFiles ? ` and ${counts.files} files` : ''}.`,
+        missing.length ? 'error' : 'info',
+      );
+    } catch (e) {
+      console.error(e);
+      toast(e.message || 'Export failed.', 'error');
+    } finally {
+      setExporting('');
+    }
+  };
+
+  const runDelete = async (e) => {
+    e.preventDefault();
+    if (phrase.trim() !== DELETE_PHRASE) return;
+    setDelErr('');
+    setDeleting('Starting…');
+    try {
+      const { files } = await deleteAllData({ onProgress: setDeleting });
+      await loadAll();
+      setConfirmOpen(false);
+      setPhrase('');
+      toast(`All data deleted${files ? ` (including ${files} uploaded file${files === 1 ? '' : 's'})` : ''}.`);
+    } catch (err) {
+      console.error(err);
+      setDelErr(`${err.message || 'Delete failed.'} Some data may already have been removed; you can try again.`);
+      loadAll();
+    } finally {
+      setDeleting('');
+    }
+  };
+
+  return (
+    <>
+      <h3>Export notes</h3>
+      <p className="muted small">
+        Downloads a ZIP with every note as Markdown (organized by space), your tasks, and a complete <code>backup.json</code>.
+      </p>
+      <label className="check-row">
+        <input type="checkbox" checked={includeFiles} disabled={busy} onChange={(e) => setIncludeFiles(e.target.checked)} />
+        Include images, PDFs, covers and custom emojis
+      </label>
+      <div className="row">
+        <button type="button" className="btn sm" onClick={runExport} disabled={busy}>
+          <Download size={14} /> {exporting || 'Export all notes'}
+        </button>
+      </div>
+
+      <h3 className="danger-heading">Delete all data</h3>
+      <div className="danger-zone">
+        <p className="small">
+          Permanently deletes all of your spaces, notes, quick notes, tasks, margin notes, custom emojis, uploaded files and settings. Your sign-in
+          account is kept, so you can start fresh. <strong>This can’t be undone</strong>, so export first if you want a copy.
+        </p>
+        {!confirmOpen ? (
+          <button type="button" className="btn sm danger" onClick={() => setConfirmOpen(true)} disabled={busy}>
+            <Trash size={14} /> Delete all data…
+          </button>
+        ) : (
+          <form className="stack narrow" onSubmit={runDelete}>
+            <label className="small" htmlFor="delete-phrase">
+              <AlertTriangle size={13} /> Type <strong>{DELETE_PHRASE}</strong> to confirm.
+            </label>
+            <input
+              id="delete-phrase"
+              className="input"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              value={phrase}
+              disabled={Boolean(deleting)}
+              onChange={(e) => setPhrase(e.target.value)}
+              autoFocus
+            />
+            {delErr && <div className="alert is-error">{delErr}</div>}
+            <div className="row gap">
+              <button type="submit" className="btn sm danger solid" disabled={phrase.trim() !== DELETE_PHRASE || Boolean(deleting)}>
+                {deleting || 'Permanently delete everything'}
+              </button>
+              <button
+                type="button"
+                className="btn sm"
+                disabled={Boolean(deleting)}
+                onClick={() => {
+                  setConfirmOpen(false);
+                  setPhrase('');
+                  setDelErr('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </>
+  );
+}
+
 function Account() {
   const session = useApp((s) => s.session);
   const signOut = useApp((s) => s.signOut);
@@ -772,6 +892,7 @@ function Account() {
       </form>
       <h3>Session</h3>
       <button type="button" className="btn sm" onClick={signOut}>Sign out</button>
+      <DataTools />
     </div>
   );
 }
