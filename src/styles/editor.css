@@ -251,7 +251,7 @@ body.hm-dragging-block .hm-handle { opacity: 0; }
 /* pre carries the code font, size and line height too: its line box must match the gutter's or numbers drift. */
 .hm-code pre { flex: 1 1 auto; min-width: 0; margin: 0; padding: 6px 16px 14px; overflow-x: auto; tab-size: 4; font-family: var(--font-code); font-size: var(--size-code); line-height: var(--code-line-height, 1.6); }
 .hm-code pre code {
-  font-family: var(--font-code); font-size: var(--size-code); display: block; line-height: var(--code-line-height, 1.6); white-space: pre; background: none; padding: 0;
+  font-family: var(--font-code); font-size: var(--size-code); display: block; line-height: var(--code-line-height, 1.6); white-space: pre-wrap; background: none; padding: 0;
   color: var(--color-code, var(--code-block-fg, var(--text)));
   font-weight: var(--weight-code, 400); font-style: var(--style-code, normal); text-decoration-line: var(--decoration-code, none);
 }
@@ -262,6 +262,15 @@ body.hm-dragging-block .hm-handle { opacity: 0; }
   color: var(--code-chrome, var(--text-3)); opacity: 0.75; user-select: none; -webkit-user-select: none; font-variant-numeric: tabular-nums;
 }
 .hm-code-body.has-lines pre { padding-left: 14px; }
+/* Measured layout: each number sits at the first visual row of its line, so wrapped lines get a single number. */
+.hm-code-lines.is-measured { width: calc(var(--ln-digits, 1) * 1ch); box-sizing: content-box; }
+.hm-code-lines-inner { position: relative; width: 100%; }
+.hm-code-lines-inner > span { position: absolute; right: 0; white-space: nowrap; }
+/* Wrapping: long tokens (URLs, hashes) break too, instead of overflowing. Off: the block scrolls sideways. */
+.hm-code.is-wrapped pre code { overflow-wrap: anywhere; }
+.hm-code.is-nowrap pre code { overflow-wrap: normal; word-break: normal; }
+.hm-code-actions { display: inline-flex; align-items: center; gap: 2px; }
+.hm-code-wrap.is-on { color: var(--code-block-fg, var(--text)); background: color-mix(in srgb, currentColor 10%, transparent); }
 
 /* highlight.js — light (GitHub-like) */
 .hljs-comment, .hljs-quote { color: #6e7781; font-style: italic; }

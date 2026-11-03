@@ -13,6 +13,7 @@ export const FileUp = L.FileUp || L.Upload || F;
 export const Replace = L.Replace || L.RefreshCw || F;
 export const LinkIcon = L.Link || F;
 export const Download = L.Download || F;
+export const WrapText = L.WrapText || L.TextWrap || F;
 export const Calendar = L.Calendar || F;
 export const Check = L.Check || F;
 export const CheckCircle = L.CheckCircle2 || L.CircleCheck || F;
