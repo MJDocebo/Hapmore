@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/useApp';
-import { FOLDER_KINDS } from '../lib/defaults';
 import { emailToUsername } from '../lib/supabase';
 import TasksWidget from '../components/TasksWidget';
 import FlaggedAnnotations from '../components/FlaggedAnnotations';
@@ -11,7 +10,8 @@ import FolderCardCover from '../components/FolderCardCover';
 import GradientPicker from '../components/GradientPicker';
 import Popover from '../components/Popover';
 import { Plus, Paintbrush } from '../components/icons';
-import { usePageWidth, useSpaceBackground } from '../lib/hooks';
+import { useFolderKinds, usePageWidth, useSpaceBackground } from '../lib/hooks';
+import { kindsSentence } from '../lib/spaceKinds';
 
 function greeting() {
   const h = new Date().getHours();
@@ -54,6 +54,7 @@ export default function Home() {
   const session = useApp((s) => s.session);
   const createFolder = useApp((s) => s.createFolder);
   const navigate = useNavigate();
+  const kinds = useFolderKinds();
   const bg = useSpaceBackground('home');
   const homeBg = useApp((s) => s.settings.backgrounds.home);
   const updateSettings = useApp((s) => s.updateSettings);
@@ -81,9 +82,9 @@ export default function Home() {
         {folders.length === 0 && (
           <section className="card onboarding float-in" style={{ '--base': '300ms' }}>
             <h3>Welcome to str(notes) 👋</h3>
-            <p>Start by creating a course, project or research topic. Each one gets quick notes, tasks and deadlines, and its own notes.</p>
+            <p>Start by creating a {kindsSentence(kinds)}. Each one gets quick notes, tasks and deadlines, and its own notes.</p>
             <div className="row gap">
-              {FOLDER_KINDS.map((k) => (
+              {kinds.map((k) => (
                 <button
                   type="button"
                   key={k.kind}
@@ -109,7 +110,7 @@ export default function Home() {
           <section className="home-section">
             <h2 className="section-title float-title" style={{ '--base': '500ms' }}>Your spaces</h2>
             <div className="folder-cards float-group" style={{ '--base': '560ms' }}>
-              {FOLDER_KINDS.flatMap((k) =>
+              {kinds.flatMap((k) =>
                 folders
                   .filter((f) => f.kind === k.kind)
                   .sort((a, b) => a.position - b.position)

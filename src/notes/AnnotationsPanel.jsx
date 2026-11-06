@@ -39,7 +39,7 @@ function AnnotationItem({ a, focused, onUpdate, onDelete, onJump }) {
         }}
       />
       <div className="anno-foot">
-        <label className="check" title="Show this on the course/project overview and the Home page">
+        <label className="check" title="Show this on the space’s overview and the Home page">
           <input type="checkbox" checked={!!a.show_on_overview} onChange={(e) => onUpdate(a.id, { show_on_overview: e.target.checked })} />
           <Eye size={12} /> Show on overview
         </label>

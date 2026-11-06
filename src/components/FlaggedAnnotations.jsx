@@ -5,12 +5,14 @@ import { useApp } from '../store/useApp';
 import { timeAgo } from '../lib/utils';
 import EmojiIcon from './EmojiIcon';
 import { EyeOff, ExternalLink } from './icons';
+import { useTabActivation } from '../lib/tabContext';
 
 /** Annotations ticked "Show on overview" that aren't resolved yet. folderId undefined → all folders. */
 export default function FlaggedAnnotations({ folderId, title = 'To look up' }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const version = useApp((s) => s.annotationsVersion);
+  const activations = useTabActivation(); // refresh when you come back to this tab
   const fail = useApp((s) => s.fail);
   const bump = useApp((s) => s.bumpAnnotations);
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ export default function FlaggedAnnotations({ folderId, title = 'To look up' }) {
     return () => {
       alive = false;
     };
-  }, [folderId, version, fail]);
+  }, [folderId, version, fail, activations]);
 
   const update = async (id, patch) => {
     setItems((list) => list.filter((a) => a.id !== id));

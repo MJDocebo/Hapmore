@@ -1,6 +1,7 @@
 import { DEFAULT_GOOGLE_FONTS } from './fonts';
 import { DEFAULT_CODE_STYLE, DEFAULT_FONTS, DEFAULT_SIZES, DEFAULT_TEXT_COLORS, DEFAULT_TEXT_STYLES, migrateTypography, normalizeCodeStyle, normalizeTextStyles } from './typography';
 import { DEFAULT_BACKGROUNDS, mergeBackgrounds } from './backgrounds';
+import { normalizeSpaceKinds } from './spaceKinds';
 import { BG_INTENSITIES } from './utils';
 
 export const DEFAULT_ZONES = [
@@ -127,6 +128,8 @@ export function validateWrapper(open, close, styles = [], selfId = null) {
 
 export const DEFAULT_SETTINGS = {
   theme: 'system', // 'light' | 'dark' | 'system'
+  spaceKinds: {}, // custom names / icons per space type: { course: { label, singular, icon } }; empty = default
+  taskArchiveDays: 7, // completed tasks move to Home → Archived tasks after this many days (0 = right away)
   pageWidth: 'normal', // 'normal' | 'wide' | 'full'
   fonts: DEFAULT_FONTS, // per typography role ('' = same as the role it follows)
   sizes: DEFAULT_SIZES, // px per role (0 = same as the role it follows) + lineHeight
@@ -167,14 +170,16 @@ export function mergeSettings(s = {}) {
     zoneDefaults: Array.isArray(s.zoneDefaults) && s.zoneDefaults.length === 4 ? s.zoneDefaults : DEFAULT_ZONES,
     backgrounds: mergeBackgrounds(s.backgrounds),
     bgIntensity: BG_INTENSITIES.some((x) => x.id === s.bgIntensity) ? s.bgIntensity : 'strong',
+    spaceKinds: normalizeSpaceKinds(s.spaceKinds),
+    taskArchiveDays: ARCHIVE_DAY_OPTIONS.includes(Number(s.taskArchiveDays)) ? Number(s.taskArchiveDays) : 7,
   };
 }
 
-export const FOLDER_KINDS = [
-  { kind: 'course', label: 'Courses', singular: 'Course', newName: 'New course' },
-  { kind: 'project', label: 'Projects', singular: 'Project', newName: 'New project' },
-  { kind: 'research', label: 'Research', singular: 'Research topic', newName: 'New research topic' },
-];
+export const ARCHIVE_DAY_OPTIONS = [0, 1, 3, 7, 14, 30];
+
+// Built-in space types live in ./spaceKinds (re-exported here for existing imports). UI code should use
+// useFolderKinds() from lib/hooks so custom names from Settings → Spaces apply.
+export { FOLDER_KINDS } from './spaceKinds';
 
 export function makeFourZoneContent(zoneDefaults = DEFAULT_ZONES) {
   return {

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '../store/useApp';
-import { FOLDER_KINDS } from '../lib/defaults';
-import { useDebouncedCallback, usePageWidth, useSpaceBackground } from '../lib/hooks';
+import { useDebouncedCallback, useFolderKind, useFolderKinds, usePageWidth, useSpaceBackground } from '../lib/hooks';
 import { resolveBg } from '../lib/backgrounds';
+import { lowerFirst } from '../lib/spaceKinds';
 import GradientPicker from '../components/GradientPicker';
 import Popover from '../components/Popover';
 import PageHeader from '../components/PageHeader';
@@ -16,6 +16,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import Menu from '../components/Menu';
 import { LayoutGrid, More, Trash, Plus, ChevronDown, Paintbrush } from '../components/icons';
 import { noteTypeMenuItems } from '../lib/noteTypes';
+import { useIsActiveTabRef } from '../lib/tabContext';
 
 export default function FolderPage() {
   const pageWidth = usePageWidth();
@@ -36,7 +37,8 @@ export default function FolderPage() {
   const [sort, setSort] = useState('manual');
   const titleRef = useRef(null);
   const menuBtn = useRef(null);
-  const meta = FOLDER_KINDS.find((k) => k.kind === folder?.kind) || FOLDER_KINDS[0];
+  const meta = useFolderKind(folder?.kind || 'course');
+  const kinds = useFolderKinds();
 
   const notes = useMemo(() => {
     const list = allNotes.filter((n) => n.folder_id === folderId);
@@ -67,11 +69,12 @@ export default function FolderPage() {
   }, [params, setParams, folderId]);
 
   // Annotations attach to notes; quick notes are a scratchpad.
+  const activeTab = useIsActiveTabRef(); // other tabs' pages stay mounted; only the visible one answers
   useEffect(() => {
-    const onAnnotate = () => toast('Annotations can be added inside notes — quick notes are a scratchpad.', 'info');
+    const onAnnotate = () => activeTab.current && toast('Annotations can be added inside notes — quick notes are a scratchpad.', 'info');
     window.addEventListener('hm:annotate', onAnnotate);
     return () => window.removeEventListener('hm:annotate', onAnnotate);
-  }, [toast]);
+  }, [toast, activeTab]);
 
   if (!folder) {
     return (
@@ -109,7 +112,7 @@ export default function FolderPage() {
             items={[
               { label: 'Background…', icon: Paintbrush, onClick: () => setBgAnchor(menuBtn.current) },
               { divider: true },
-              ...FOLDER_KINDS.filter((k) => k.kind !== folder.kind).map((k) => ({
+              ...kinds.filter((k) => k.kind !== folder.kind).map((k) => ({
                 label: `Move to ${k.label}`,
                 icon: LayoutGrid,
                 onClick: () => useApp.getState().moveFolder(folder.id, k.kind, null),
@@ -129,15 +132,25 @@ export default function FolderPage() {
           />
         )}
         {bgAnchor && (
+          // Same layout as the Home page's background picker; "Use default" lives in the footer instead of a tile.
           <Popover anchor={bgAnchor} onClose={() => setBgAnchor(null)} placement="bottom-end" className="hm-menu pad">
-            <div className="grad-title">Background for this {meta.singular.toLowerCase()}</div>
+            <div className="grad-title">{meta.singular} background</div>
             <GradientPicker
-              value={folder.background || null}
-              inherited={resolveBg(backgrounds, folder.kind, null)}
-              inheritLabel={`${meta.label} default`}
-              onChange={(g) => updateFolder(folder.id, { background: g })}
+              value={folder.background || resolveBg(backgrounds, folder.kind, null)}
+              onChange={(g) => updateFolder(folder.id, { background: g || { off: true } })}
             />
-            <p className="muted small grad-note">The default for all {meta.label.toLowerCase()} is set in Settings → Appearance.</p>
+            <p className="muted small grad-note">
+              {folder.background ? (
+                <>
+                  This {lowerFirst(meta.singular)} has its own background.{' '}
+                  <button type="button" className="link-btn" onClick={() => updateFolder(folder.id, { background: null })}>
+                    Use the default for all {lowerFirst(meta.label)}
+                  </button>
+                </>
+              ) : (
+                <>Following the default for all {lowerFirst(meta.label)} (Settings → Appearance). Pick one to give this {lowerFirst(meta.singular)} its own.</>
+              )}
+            </p>
           </Popover>
         )}
       </div>
@@ -152,12 +165,12 @@ export default function FolderPage() {
       >
         <div className="folder-meta">
           <label className="meta-field">
-            <span>{folder.kind === 'course' ? 'Course code' : 'Short code'}</span>
+            <span>{folder.kind === 'course' ? `${meta.singular} code` : 'Short code'}</span>
             <input
               className="input sm"
               defaultValue={folder.code || ''}
               key={`code-${folder.id}`}
-              placeholder={folder.kind === 'course' ? 'e.g. CS 6210' : 'optional'}
+              placeholder={folder.kind === 'course' && !meta.isCustom ? 'e.g. CS 6210' : 'optional'}
               onBlur={(e) => e.target.value !== (folder.code || '') && updateFolder(folder.id, { code: e.target.value.trim() || null })}
             />
           </label>

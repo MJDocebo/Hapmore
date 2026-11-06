@@ -84,6 +84,25 @@ create table if not exists public.tasks (
 );
 create index if not exists tasks_user_idx on public.tasks (user_id, done, due_date);
 create index if not exists tasks_folder_idx on public.tasks (folder_id);
+-- Upgrade (safe to re-run): when a task was completed, so old completed tasks can move to the archive.
+-- Set automatically by the trigger below; the app falls back to updated_at if this column is missing.
+alter table public.tasks add column if not exists completed_at timestamptz;
+update public.tasks set completed_at = updated_at where done and completed_at is null;
+create index if not exists tasks_done_idx on public.tasks (user_id, done, completed_at);
+
+create or replace function public.hm_task_completed_at()
+returns trigger language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    new.completed_at := case when new.done then coalesce(new.completed_at, now()) else null end;
+  elsif new.done is distinct from old.done then
+    new.completed_at := case when new.done then now() else null end;
+  end if;
+  return new;
+end $$;
+drop trigger if exists tasks_completed_at on public.tasks;
+create trigger tasks_completed_at before insert or update on public.tasks
+  for each row execute function public.hm_task_completed_at();
 
 -- ─────────────────────────────── annotations ───────────────────────────────
 -- Margin notes attached to a block (block_id = data-block-id inside the note's content).

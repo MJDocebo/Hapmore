@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { NavLink, useParams } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, NavLink, useParams } from 'react-router-dom';
+import { ARCHIVE_DAY_LABELS } from '../lib/tasks';
 import { useApp } from '../store/useApp';
 import { supabase, emailToUsername } from '../lib/supabase';
-import { DEFAULT_SETTINGS, DEFAULT_COLORS, DEFAULT_CUSTOM_STYLES, DEFAULT_ZONES, ZONE_TEMPLATES, BLANK_STYLE, validateWrapper } from '../lib/defaults';
+import { DEFAULT_SETTINGS, DEFAULT_COLORS, DEFAULT_CUSTOM_STYLES, DEFAULT_ZONES, ZONE_TEMPLATES, BLANK_STYLE, validateWrapper, ARCHIVE_DAY_OPTIONS } from '../lib/defaults';
 import { fontsByGroup, fontStack, loadFont, setFontLibrary } from '../lib/fonts';
 import { CODE_LINE_HEIGHTS, DEFAULT_CODE_STYLE, LINE_HEIGHTS, ROLE_LABELS, SIZE_OPTIONS, TYPE_GROUPS, TYPE_ROLES, effectiveStyle, normalizeCodeStyle, withStyleFlag } from '../lib/typography';
 import FontLibrary from './FontLibrary';
@@ -11,6 +12,9 @@ import { pickFile } from '../lib/storage';
 import { deleteAllData, downloadBlob, exportAllData } from '../lib/accountData';
 import ColorPicker from '../components/ColorPicker';
 import EmojiIcon from '../components/EmojiIcon';
+import { KIND_ICON_CHOICES, KindIcon } from '../components/FolderIcon';
+import { useFolderKinds } from '../lib/hooks';
+import { KIND_DEFAULT_ICONS, NAME_MAX, FOLDER_KINDS, guessSingular, lowerFirst, kindsSentence } from '../lib/spaceKinds';
 import EmojiPicker from '../components/EmojiPicker';
 import Popover from '../components/Popover';
 import GradientPicker from '../components/GradientPicker';
@@ -24,6 +28,7 @@ const TABS = [
   { id: 'colors', label: 'Colors' },
   { id: 'styles', label: 'Text styles' },
   { id: 'zones', label: '4-zone defaults' },
+  { id: 'spaces', label: 'Spaces & tasks' },
   { id: 'emojis', label: 'Custom emojis' },
   { id: 'account', label: 'Account' },
 ];
@@ -92,6 +97,11 @@ function ColorButton({ value, onChange, presets, label, noneLabel = 'Default', t
 function Appearance() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
+  const kinds = useFolderKinds();
+  const scopeLabel = (id) => {
+    const k = kinds.find((x) => x.kind === id);
+    return k ? `All ${lowerFirst(k.label)}` : BG_SCOPES.find((s) => s.id === id)?.label;
+  };
   return (
     <div className="settings-section">
       <h3>Theme</h3>
@@ -126,13 +136,13 @@ function Appearance() {
       <h3>Backgrounds</h3>
       <p className="muted small">
         A subtle gradient behind the Home page and spaces sets them apart from notes. Set one for Home and one for each kind of space; any single
-        course, project or research topic can override it from its <strong>⋯ → Background</strong> menu.
+        {' '}{kindsSentence(kinds)} can override it from its <strong>⋯ → Background</strong> menu.
       </p>
       <div className="bg-scope-grid">
         {BG_SCOPES.map((sc) => (
           <div className="bg-scope" key={sc.id}>
             <div className="bg-scope-head">
-              <h4>{sc.label}</h4>
+              <h4>{scopeLabel(sc.id)}</h4>
               <span className="muted small">{bgLabel(settings.backgrounds[sc.id])}</span>
               <span className="bg-scope-swatch" style={{ background: bgCss(settings.backgrounds[sc.id]) || 'var(--bg)' }} />
               <button
@@ -661,6 +671,168 @@ function Zones() {
   );
 }
 
+function KindIconButton({ kind, onChange }) {
+  const [anchor, setAnchor] = useState(null);
+  const [emojiAnchor, setEmojiAnchor] = useState(null);
+  const btnRef = useRef(null);
+  const isDefault = kind.icon === KIND_DEFAULT_ICONS[kind.kind];
+  return (
+    <>
+      <button type="button" ref={btnRef} className="kind-icon-btn" title="Change icon" aria-label={`Icon for ${kind.label}`} onClick={(e) => setAnchor(e.currentTarget)}>
+        <KindIcon icon={kind.icon} size={22} />
+      </button>
+      {anchor && (
+        <Popover anchor={anchor} onClose={() => setAnchor(null)} className="hm-menu pad">
+          <div className="grad-title">Icon for {kind.label}</div>
+          <div className="kind-icon-grid">
+            {KIND_ICON_CHOICES.map((name) => {
+              const v = `lucide:${name}`;
+              return (
+                <button
+                  type="button"
+                  key={name}
+                  className={`kind-icon-choice ${kind.icon === v ? 'is-active' : ''}`}
+                  title={name.replace(/([a-z])([A-Z0-9])/g, '$1 $2')}
+                  onClick={() => {
+                    onChange(v === KIND_DEFAULT_ICONS[kind.kind] ? '' : v);
+                    setAnchor(null);
+                  }}
+                >
+                  <KindIcon icon={v} size={18} />
+                </button>
+              );
+            })}
+          </div>
+          <div className="row gap kind-icon-foot">
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => {
+                setAnchor(null);
+                setEmojiAnchor(btnRef.current);
+              }}
+            >
+              <Smile size={14} /> Use an emoji…
+            </button>
+            {!isDefault && (
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => {
+                  onChange('');
+                  setAnchor(null);
+                }}
+              >
+                <RotateCcw size={13} /> Default
+              </button>
+            )}
+          </div>
+        </Popover>
+      )}
+      {emojiAnchor && (
+        <EmojiPicker
+          anchor={emojiAnchor}
+          onClose={() => setEmojiAnchor(null)}
+          onSelect={(v) => {
+            onChange(v);
+            setEmojiAnchor(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** Text field that saves on blur / Enter, so trimming doesn't fight the cursor while typing. */
+function NameField({ label, value, placeholder, onCommit }) {
+  return (
+    <label className="st-field">
+      <span className="muted small">{label}</span>
+      <input
+        className="input sm"
+        key={value}
+        defaultValue={value}
+        placeholder={placeholder}
+        maxLength={NAME_MAX}
+        onBlur={(e) => e.target.value.trim() !== value && onCommit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            e.currentTarget.value = value;
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </label>
+  );
+}
+
+function Spaces() {
+  const saved = useApp((s) => s.settings.spaceKinds);
+  const folders = useApp((s) => s.folders);
+  const update = useApp((s) => s.updateSettings);
+  const archiveDays = useApp((s) => s.settings.taskArchiveDays);
+  const kinds = useFolderKinds();
+  const setKind = (kind, patch) => update((st) => ({ spaceKinds: { ...st.spaceKinds, [kind]: { ...st.spaceKinds[kind], ...patch } } }));
+
+  return (
+    <div className="settings-section">
+      <h3>Space types</h3>
+      <p className="muted small">
+        Rename the three kinds of spaces in the sidebar and give them their own icons, to use str(notes) for whatever you like: clients, books, trips… Your
+        spaces and notes stay exactly where they are. The icon shows for any space that doesn’t have its own emoji.
+      </p>
+      <div className="kind-list">
+        {kinds.map((k) => {
+          const base = FOLDER_KINDS.find((b) => b.kind === k.kind);
+          const count = folders.filter((f) => f.kind === k.kind).length;
+          return (
+            <div className="kind-row" key={k.kind}>
+              <KindIconButton kind={k} onChange={(icon) => setKind(k.kind, { icon })} />
+              <NameField label="Section name" value={saved[k.kind]?.label || ''} placeholder={base.label} onCommit={(label) => setKind(k.kind, { label })} />
+              <NameField label="One item is a…" value={saved[k.kind]?.singular || ''} placeholder={saved[k.kind]?.label ? guessSingular(saved[k.kind].label) : base.singular} onCommit={(singular) => setKind(k.kind, { singular })} />
+              <div className="kind-preview muted small">
+                <span>
+                  {count} {count === 1 ? lowerFirst(k.singular) : lowerFirst(k.label)}
+                </span>
+                <span>“{k.newName}”</span>
+              </div>
+              <button
+                type="button"
+                className="icon-btn sm"
+                title="Reset to default"
+                disabled={!k.isCustom}
+                onClick={() => setKind(k.kind, { label: '', singular: '', icon: '' })}
+              >
+                <RotateCcw size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="muted small">
+        Leave a name empty to use the default. The preview shows how a new item is named.
+      </p>
+
+      <h3>Completed tasks</h3>
+      <p className="muted small">
+        Checked-off tasks, deadlines and reminders leave Home and space task lists after a while, so the lists don’t grow forever. They’re
+        never deleted: find them under <Link to="/archive">Home → Archived tasks</Link>.
+      </p>
+      <label className="st-field archive-setting">
+        <span className="muted small">Move to the archive</span>
+        <select className="input sm" value={archiveDays} onChange={(e) => update({ taskArchiveDays: Number(e.target.value) })}>
+          {ARCHIVE_DAY_OPTIONS.map((d) => (
+            <option key={d} value={d}>
+              {ARCHIVE_DAY_LABELS[d]}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
 function Emojis() {
   const emojis = useApp((s) => s.emojis);
   const addEmoji = useApp((s) => s.addEmoji);
@@ -897,7 +1069,7 @@ function Account() {
   );
 }
 
-const PANES = { appearance: Appearance, typography: Typography, fonts: FontLibrary, colors: Colors, styles: Styles, zones: Zones, emojis: Emojis, account: Account };
+const PANES = { appearance: Appearance, typography: Typography, fonts: FontLibrary, colors: Colors, styles: Styles, zones: Zones, spaces: Spaces, emojis: Emojis, account: Account };
 
 export default function SettingsPage() {
   const { tab = 'appearance' } = useParams();

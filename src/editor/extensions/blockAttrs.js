@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { shortId, bgTint } from '../../lib/utils';
 import { parseNoteHref, navigateTo, noteTitle } from '../../lib/links';
+import { openInTab } from '../../lib/tabs';
 
 /** Block types that receive a stable `blockId` (used to link annotations to blocks). */
 export const ID_TYPES = [
@@ -193,7 +194,7 @@ export const LinkOpener = Extension.create({
             const modified = event.metaKey || event.ctrlKey;
             if (internal) {
               event.preventDefault();
-              if (modified) window.open(href, '_blank', 'noopener');
+              if (modified) openInTab(internal.href); // in-app tab
               else navigateTo(internal.href);
               return true;
             }

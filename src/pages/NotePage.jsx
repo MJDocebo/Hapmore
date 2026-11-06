@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/useApp';
-import { normalizeFourZone, FOLDER_KINDS } from '../lib/defaults';
-import { useLocalStorage, usePageWidth, PAGE_WIDTHS } from '../lib/hooks';
+import { normalizeFourZone } from '../lib/defaults';
+import { useLocalStorage, usePageWidth, PAGE_WIDTHS, useFolderKind } from '../lib/hooks';
 import { scrollToBlock } from '../editor/actions';
 import { useNoteSaver } from '../notes/useNoteSaver';
 import Editor from '../editor/Editor';
@@ -17,6 +17,7 @@ import FolderIcon from '../components/FolderIcon';
 import Breadcrumbs from '../components/Breadcrumbs';
 import Menu from '../components/Menu';
 import { MessageSquare, More, Copy, Trash, LayoutGrid, FileText, Loader, Check, Move, MoveHorizontal, LinkIcon } from '../components/icons';
+import { useTabActivation } from '../lib/tabContext';
 
 function SaveStatus({ status }) {
   if (status === 'saving' || status === 'dirty')
@@ -68,7 +69,8 @@ export default function NotePage() {
   const contentRef = useRef(null); // latest editor content (editors are uncontrolled, so state.content goes stale)
   const { save, flush, status } = useNoteSaver(noteId);
   const folder = folders.find((f) => f.id === note?.folder_id);
-  const kind = FOLDER_KINDS.find((k) => k.kind === folder?.kind);
+  const kindMeta = useFolderKind(folder?.kind);
+  const kind = folder ? kindMeta : null;
   const pageWidth = usePageWidth(note?.page_width);
 
   // ------------------------------------------------------------ load
@@ -97,6 +99,29 @@ export default function NotePage() {
       alive = false;
     };
   }, [noteId, fail]);
+
+  // Back in this tab after working in another: pick up annotations resolved / flagged / added / deleted elsewhere
+  // (e.g. from Home's flagged list). Comment text you have here is left alone so a pending edit isn't clobbered.
+  const activations = useTabActivation();
+  useEffect(() => {
+    if (!activations) return undefined;
+    let alive = true;
+    supabase
+      .from('annotations')
+      .select('*')
+      .eq('note_id', noteId)
+      .order('created_at')
+      .then(({ data, error }) => {
+        if (!alive || error || !data) return;
+        setAnnotations((list) => {
+          const mine = new Map(list.map((a) => [a.id, a]));
+          return data.map((a) => (mine.has(a.id) ? { ...mine.get(a.id), resolved: a.resolved, show_on_overview: a.show_on_overview } : a));
+        });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [activations, noteId]);
 
   const patch = useCallback(
     (p) => {

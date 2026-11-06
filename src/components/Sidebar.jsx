@@ -1,18 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../store/useApp';
-import { FOLDER_KINDS } from '../lib/defaults';
 import { emailToUsername } from '../lib/supabase';
-import { useLocalStorage } from '../lib/hooks';
+import { useFolderKinds, useLocalStorage } from '../lib/hooks';
 import { clamp, tagStyle } from '../lib/utils';
 import EmojiIcon from './EmojiIcon';
-import FolderIcon from './FolderIcon';
+import FolderIcon, { KindIcon } from './FolderIcon';
 import Menu from './Menu';
 import {
-  ChevronDown, ChevronRight, Plus, More, Home, Settings, LogOut, PanelLeftClose, Search, X, FileText, LayoutGrid, Trash, Copy, Pencil, LinkIcon,
+  ChevronDown, ChevronRight, Plus, More, Home, Settings, LogOut, PanelLeftClose, Search, X, FileText, LayoutGrid, Trash, Copy, Pencil, LinkIcon, NewTab,
 } from './icons';
+import { handleTabClick, openInTab } from './TabBar';
 import { noteTypeMenuItems, noteTypeMeta } from '../lib/noteTypes';
 import { copyNoteLink } from '../lib/links';
+import { lowerFirst } from '../lib/spaceKinds';
 
 const NOTE_MIME = 'application/x-hapmore-note';
 
@@ -62,7 +63,8 @@ function NoteRow({ note, depthClass = '', onDropNote, dropState, setDropState })
         setDropState(null);
         onDropNote(e.dataTransfer.getData(NOTE_MIME), note.folder_id, note.id);
       }}
-      onClick={() => navigate(`/n/${note.id}`)}
+      onClick={(e) => handleTabClick(e, `/n/${note.id}`) || navigate(`/n/${note.id}`)}
+      onAuxClick={(e) => handleTabClick(e, `/n/${note.id}`)}
       title={note.title || 'Untitled'}
     >
       <span className="nav-icon">
@@ -79,6 +81,7 @@ function NoteRow({ note, depthClass = '', onDropNote, dropState, setDropState })
           anchor={menu}
           onClose={() => setMenu(null)}
           items={[
+            { label: 'Open in new tab', icon: NewTab, onClick: () => openInTab(`/n/${note.id}`) },
             { label: 'Copy link', icon: LinkIcon, onClick: () => copyNoteLink(note.id) },
             { label: 'Duplicate', icon: Copy, onClick: async () => { const n = await duplicateNote(note.id); if (n) navigate(`/n/${n.id}`); } },
             { divider: true },
@@ -101,6 +104,7 @@ function NoteRow({ note, depthClass = '', onDropNote, dropState, setDropState })
 
 function FolderRow({ folder, notes, onDropNote, onDropFolder, dropState, setDropState }) {
   const navigate = useNavigate();
+  const kinds = useFolderKinds();
   const { folderId } = useActiveIds();
   const updateFolder = useApp((s) => s.updateFolder);
   const deleteFolder = useApp((s) => s.deleteFolder);
@@ -165,7 +169,8 @@ function FolderRow({ folder, notes, onDropNote, onDropFolder, dropState, setDrop
             onDropFolder(e.dataTransfer.getData(FOLDER_MIME), folder.kind, folder.id);
           }
         }}
-        onClick={() => navigate(`/f/${folder.id}`)}
+        onClick={(e) => handleTabClick(e, `/f/${folder.id}`) || navigate(`/f/${folder.id}`)}
+        onAuxClick={(e) => handleTabClick(e, `/f/${folder.id}`)}
         title={folder.code ? `${folder.code} · ${folder.name}` : folder.name}
       >
         <button
@@ -210,7 +215,8 @@ function FolderRow({ folder, notes, onDropNote, onDropFolder, dropState, setDrop
           onClose={() => setMoreMenu(null)}
           items={[
             { label: 'Open & edit details', icon: Pencil, onClick: () => navigate(`/f/${folder.id}`) },
-            ...FOLDER_KINDS.filter((k) => k.kind !== folder.kind).map((k) => ({
+            { label: 'Open in new tab', icon: NewTab, onClick: () => openInTab(`/f/${folder.id}`) },
+            ...kinds.filter((k) => k.kind !== folder.kind).map((k) => ({
               label: `Move to ${k.label}`,
               icon: ChevronRight,
               onClick: () => onDropFolder(folder.id, k.kind, null),
@@ -284,12 +290,13 @@ function Section({ meta, folders, notesByFolder, onDropNote, onDropFolder, dropS
       >
         <button type="button" className="nav-section-toggle" onClick={() => setOpen(!open)}>
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {meta.isCustom && meta.icon && !meta.icon.startsWith('lucide:') ? <KindIcon icon={meta.icon} size={12} className="nav-section-icon" /> : null}
           <span>{meta.label}</span>
         </button>
         <button
           type="button"
           className="icon-btn xs"
-          title={`New ${meta.singular.toLowerCase()}`}
+          title={meta.newName}
           onClick={async () => {
             const f = await createFolder(meta.kind);
             setOpen(true);
@@ -301,7 +308,7 @@ function Section({ meta, folders, notesByFolder, onDropNote, onDropFolder, dropS
       </div>
       {open && (
         <div className="nav-section-body">
-          {folders.length === 0 && <div className="nav-hint">No {meta.label.toLowerCase()} yet</div>}
+          {folders.length === 0 && <div className="nav-hint">No {lowerFirst(meta.label)} yet</div>}
           {folders.map((f) => (
             <FolderRow
               key={f.id}
@@ -351,7 +358,7 @@ function SearchResults({ query }) {
         </div>
       )}
       {matchFolders.map((f) => (
-        <div key={f.id} className="nav-row" onClick={() => navigate(`/f/${f.id}`)}>
+        <div key={f.id} className="nav-row" onClick={(e) => handleTabClick(e, `/f/${f.id}`) || navigate(`/f/${f.id}`)} onAuxClick={(e) => handleTabClick(e, `/f/${f.id}`)}>
           <span className="nav-icon"><FolderIcon folder={f} size={15} fallback /></span>
           <span className="nav-label">{f.code && <span className="nav-code">{f.code}</span>}{f.name}</span>
         </div>
@@ -359,7 +366,7 @@ function SearchResults({ query }) {
       {matchNotes.map((n) => {
         const f = folders.find((x) => x.id === n.folder_id);
         return (
-          <div key={n.id} className="nav-row" onClick={() => navigate(`/n/${n.id}`)}>
+          <div key={n.id} className="nav-row" onClick={(e) => handleTabClick(e, `/n/${n.id}`) || navigate(`/n/${n.id}`)} onAuxClick={(e) => handleTabClick(e, `/n/${n.id}`)}>
             <span className="nav-icon">{n.icon ? <EmojiIcon value={n.icon} size={15} /> : (() => { const I = noteTypeMeta(n.type).Icon; return <I size={15} />; })()}</span>
             <span className="nav-label">
               {n.title || 'Untitled'}
@@ -383,13 +390,14 @@ export default function Sidebar({ onCollapse, width, onResize }) {
   const [query, setQuery] = useState('');
   const [dropState, setDropState] = useState(null);
   const location = useLocation();
+  const kinds = useFolderKinds();
 
   const byKind = useMemo(() => {
     const out = {};
-    FOLDER_KINDS.forEach((k) => (out[k.kind] = []));
+    kinds.forEach((k) => (out[k.kind] = []));
     [...folders].sort((a, b) => a.position - b.position).forEach((f) => (out[f.kind] || (out[f.kind] = [])).push(f));
     return out;
-  }, [folders]);
+  }, [folders, kinds]);
 
   const notesByFolder = useMemo(() => {
     const out = {};
@@ -446,7 +454,7 @@ export default function Sidebar({ onCollapse, width, onResize }) {
               <span className="nav-icon"><Home size={15} /></span>
               <span className="nav-label">Home</span>
             </NavLink>
-            {FOLDER_KINDS.map((k) => (
+            {kinds.map((k) => (
               <Section
                 key={k.kind}
                 meta={k}

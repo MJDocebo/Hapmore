@@ -3,8 +3,8 @@ import { supabase } from './supabase';
 import { BUCKET } from './storage';
 import { makeZip } from './zip';
 import { docToMarkdown } from './markdown';
+import { resolveFolderKinds } from './spaceKinds';
 
-const KIND_DIR = { course: 'Courses', project: 'Projects', research: 'Research' };
 const TYPE_LABEL = { standard: 'Note', four_zone: '4-Zone note', pdf: 'PDF note' };
 const TABLES_IN_DELETE_ORDER = ['annotations', 'tasks', 'notes', 'folders', 'custom_emojis', 'user_settings'];
 
@@ -71,9 +71,13 @@ export async function exportAllData({ includeFiles = true, onProgress = () => {}
     if (!usedByDir.has(dir)) usedByDir.set(dir, new Set(['files', 'readme.md', 'tasks.md', 'backup.json', '_quick notes']));
     return safeName(raw, usedByDir.get(dir), fb);
   };
+  // Top-level folders use the space-type names from Settings → Spaces (e.g. "Clients" instead of "Courses").
+  const kindDirs = new Map();
+  const usedKindDirs = new Set(['files', 'unfiled', 'readme.md', 'tasks.md', 'backup.json']);
+  resolveFolderKinds(settingsRows[0]?.settings?.spaceKinds).forEach((k) => kindDirs.set(k.kind, safeName(k.label, usedKindDirs, k.kind)));
   const folderDir = new Map();
   for (const f of folders) {
-    const kindDir = KIND_DIR[f.kind] || 'Other';
+    const kindDir = kindDirs.get(f.kind) || 'Other';
     folderDir.set(f.id, `${kindDir}/${uniqueIn(kindDir, [f.code, f.name].filter(Boolean).join(' - '), 'Untitled space')}`);
   }
   const notePath = new Map();
@@ -226,7 +230,7 @@ export async function exportAllData({ includeFiles = true, onProgress = () => {}
       '# str(notes) export',
       `Exported ${fmtDate(exportedAt.toISOString())}.`,
       `- ${counts.spaces} spaces, ${counts.notes} notes, ${counts.tasks} tasks${includeFiles ? `, ${counts.files} files` : ''}`,
-      '- Notes are Markdown files organized as `Courses|Projects|Research/<space>/<note>.md`; each space\'s quick notes are in `_Quick notes.md`.',
+      `- Notes are Markdown files organized as \`${[...kindDirs.values()].join('|')}/<space>/<note>.md\`; each space's quick notes are in \`_Quick notes.md\`.`,
       '- `Tasks.md` lists tasks, deadlines and reminders.',
       includeFiles ? '- `files/` holds images, PDFs, covers and custom emojis referenced by your notes.' : '- Images and PDFs were not included in this export.',
       '- `backup.json` is a complete copy of the raw data (including formatting Markdown can\'t express, such as colors and layouts).',

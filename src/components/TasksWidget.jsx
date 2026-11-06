@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../store/useApp';
 import { formatDue } from '../lib/utils';
-import { Plus, Trash, Calendar, Bell, Flag, Check } from './icons';
+import { Plus, Trash, Calendar, Bell, Flag, Check, Archive } from './icons';
+import { formatCompleted, isArchived, localDonePatch } from '../lib/tasks';
 import FolderIcon from './FolderIcon';
 import AutoTextarea from './AutoTextarea';
+import { useTabActivation } from '../lib/tabContext';
 
 export const TASK_MAX = 255;
 /** Tasks are single-line text: pasted line breaks become spaces; capped at TASK_MAX characters. */
@@ -104,7 +107,7 @@ function sortTasks(a, b) {
   return (a.created_at || '') < (b.created_at || '') ? -1 : 1;
 }
 
-function TaskRow({ t, allMode, folders, update, remove }) {
+export function TaskRow({ t, allMode, folders, update, remove, showCompleted = false }) {
   const due = formatDue(t.due_date);
   const kind = KINDS.find((k) => k.id === t.kind) || KINDS[0];
   const folder = allMode && t.folder_id ? folders.find((f) => f.id === t.folder_id) : null;
@@ -132,6 +135,11 @@ function TaskRow({ t, allMode, folders, update, remove }) {
           {folder && (
             <span className="task-folder" title={folder.code ? `${folder.code} · ${folder.name}` : folder.name}>
               <FolderIcon folder={folder} size={11} /> <span className="task-folder-name">{folder.code || folder.name}</span>
+            </span>
+          )}
+          {showCompleted && t.done && formatCompleted(t) && (
+            <span className="task-completed">
+              <Check size={11} /> Done {formatCompleted(t)}
             </span>
           )}
         </div>
@@ -172,6 +180,9 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
   const [loading, setLoading] = useState(true);
   const [showDone, setShowDone] = useState(false);
   const [draft, setDraft] = useState({ title: '', kind: 'task', due_date: '', folder_id: '' });
+  const archiveDays = useApp((s) => s.settings.taskArchiveDays);
+  const [reloadKey, setReloadKey] = useState(0); // bumped after a failed write to resync with the server
+  const activations = useTabActivation(); // coming back to this tab picks up tasks changed in other tabs
 
   useEffect(() => {
     let alive = true;
@@ -186,7 +197,7 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
     return () => {
       alive = false;
     };
-  }, [folderId, allMode, fail]);
+  }, [folderId, allMode, fail, reloadKey, activations]);
 
   const visible = useMemo(() => {
     let list = [...tasks].sort(sortTasks);
@@ -196,7 +207,10 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
     return list;
   }, [tasks, allMode, horizonDays]);
   const open = visible.filter((t) => !t.done);
-  const done = visible.filter((t) => t.done);
+  // Completed tasks stay here for `archiveDays` days, then only show on Home → Archived tasks.
+  const now = Date.now();
+  const done = visible.filter((t) => t.done && !isArchived(t, archiveDays, now));
+  const archivedCount = tasks.filter((t) => isArchived(t, archiveDays, now)).length;
 
   const folderLabel = (f) => (f.code ? `${f.code} · ${f.name}` : f.name);
   const pickedFolder = draft.folder_id ? folders.find((f) => f.id === draft.folder_id) : null;
@@ -218,15 +232,22 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
   };
 
   const update = async (id, patch) => {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    const local = localDonePatch(patch);
+    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...local } : t)));
     const { error } = await supabase.from('tasks').update(patch).eq('id', id);
-    if (error) fail(error, 'Could not update task');
+    if (error) {
+      fail(error, 'Could not update task');
+      setReloadKey((k) => k + 1);
+    }
   };
 
   const remove = async (id) => {
     setTasks((ts) => ts.filter((t) => t.id !== id));
     const { error } = await supabase.from('tasks').delete().eq('id', id);
-    if (error) fail(error, 'Could not delete task');
+    if (error) {
+      fail(error, 'Could not delete task');
+      setReloadKey((k) => k + 1);
+    }
   };
 
   return (
@@ -269,8 +290,8 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
             <select
               className="input sm task-folder-select"
               value={draft.folder_id}
-              title={pickedFolder ? folderLabel(pickedFolder) : 'General (no course or project)'}
-              aria-label="Course or project"
+              title={pickedFolder ? folderLabel(pickedFolder) : 'General (not tied to a space)'}
+              aria-label="Space"
               onChange={(e) => setDraft({ ...draft, folder_id: e.target.value })}
             >
               <option value="">General</option>
@@ -294,15 +315,24 @@ export default function TasksWidget({ folderId, title = 'Tasks & deadlines', hor
               <TaskRow key={t.id} t={t} allMode={allMode} folders={folders} update={update} remove={remove} />
             ))}
           </ul>
-          {done.length > 0 && (
-            <button type="button" className="link-btn" onClick={() => setShowDone((v) => !v)}>
-              {showDone ? 'Hide' : 'Show'} completed ({done.length})
-            </button>
+          {(done.length > 0 || archivedCount > 0) && (
+            <div className="task-foot">
+              {done.length > 0 && (
+                <button type="button" className="link-btn" onClick={() => setShowDone((v) => !v)}>
+                  {showDone ? 'Hide' : 'Show'} completed ({done.length})
+                </button>
+              )}
+              {archivedCount > 0 && (
+                <Link className="link-btn task-archive-link" to={allMode ? '/archive' : `/archive?space=${folderId}`}>
+                  <Archive size={12} /> Archived ({archivedCount})
+                </Link>
+              )}
+            </div>
           )}
           {showDone && (
             <ul className="task-list">
               {done.map((t) => (
-                <TaskRow key={t.id} t={t} allMode={allMode} folders={folders} update={update} remove={remove} />
+                <TaskRow key={t.id} t={t} allMode={allMode} folders={folders} update={update} remove={remove} showCompleted />
               ))}
             </ul>
           )}

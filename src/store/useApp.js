@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { mergeSettings, makeFourZoneContent, randomCover, FOLDER_KINDS } from '../lib/defaults';
+import { mergeSettings, makeFourZoneContent, randomCover } from '../lib/defaults';
+import { resolveFolderKind } from '../lib/spaceKinds';
+import { useTabs } from './useTabs';
 import { debounce, sanitizeEmojiName } from '../lib/utils';
 import { getSignedUrls, removeFile, uploadFile } from '../lib/storage';
 import { normalizePdfContent, removePdfIfUnused } from '../lib/pdf';
@@ -29,7 +31,6 @@ export const useApp = create((set, get) => ({
   dialog: null, // { id, kind: 'confirm' | 'prompt', title, message, confirmLabel, danger, resolve }
   activeEditor: null,
   resolvedTheme: 'light',
-  spaceBg: null, // CSS gradient for the current Home / space page (painted by Layout's scroll container)
   annotationsVersion: 0,
 
   // ---------------------------------------------------------------- toasts
@@ -80,6 +81,7 @@ export const useApp = create((set, get) => ({
 
   async signOut() {
     persistSettings.flush();
+    useTabs.getState().reset();
     await supabase.auth.signOut();
   },
 
@@ -113,7 +115,7 @@ export const useApp = create((set, get) => ({
 
   // ---------------------------------------------------------------- folders
   async createFolder(kind) {
-    const meta = FOLDER_KINDS.find((k) => k.kind === kind) || FOLDER_KINDS[0];
+    const meta = resolveFolderKind(get().settings.spaceKinds, kind);
     const siblings = get().folders.filter((f) => f.kind === kind);
     const position = siblings.length ? Math.max(...siblings.map((f) => f.position)) + 1 : 1;
     const { data, error } = await supabase
