@@ -31,13 +31,29 @@ export function formatBytes(n) {
  */
 const LRU_SIZE = 3;
 const blobCache = new Map(); // path -> Promise<string>
+const inUse = new Map(); // path -> number of mounted PDF notes showing it (e.g. in background tabs)
 
+// Frees the least recently used documents beyond LRU_SIZE, but never one that's still on screen in some tab:
+// revoking its blob: URL would break that viewer's page jumps.
 function evict() {
-  while (blobCache.size > LRU_SIZE) {
-    const [oldest, p] = blobCache.entries().next().value;
-    blobCache.delete(oldest);
+  let extra = blobCache.size - LRU_SIZE;
+  for (const [path, p] of [...blobCache]) {
+    if (extra <= 0) break;
+    if (inUse.get(path)) continue;
+    blobCache.delete(path);
+    extra -= 1;
     p.then((url) => url && URL.revokeObjectURL(url)).catch(() => {});
   }
+}
+
+function acquire(path) {
+  inUse.set(path, (inUse.get(path) || 0) + 1);
+}
+function release(path) {
+  const n = (inUse.get(path) || 1) - 1;
+  if (n > 0) inUse.set(path, n);
+  else inUse.delete(path);
+  evict();
 }
 
 function loadPdfUrl(path) {
@@ -67,12 +83,14 @@ export function usePdfUrl(path) {
     let alive = true;
     setState({ url: null, error: null });
     if (!path) return undefined;
+    acquire(path);
     loadPdfUrl(path).then(
       (url) => alive && setState({ url, error: null }),
       (err) => alive && setState({ url: null, error: err?.message || 'Could not load the PDF.' }),
     );
     return () => {
       alive = false;
+      release(path);
     };
   }, [path]);
   return state;
